@@ -109,14 +109,9 @@ if [ "$LOCAL_PORT" = "53" ]; then
     fi
 fi
 
-read -p "Local port for users on their system (for Telegram proxy - default: 1080): " USER_PORT
-if [ -z "$USER_PORT" ]; then
-    USER_PORT="1080"
-    echo -e "${YELLOW}Using default port: $USER_PORT${NC}"
-fi
-echo -e "${YELLOW}Note: This port is ONLY for documentation/info.txt file.${NC}"
-echo -e "${YELLOW}      It's the local port where dnstt-client will listen on user's system (127.0.0.1:$USER_PORT).${NC}"
-echo -e "${YELLOW}      This port is NOT used on the server - it's only shown in instructions to users.${NC}"
+# USER_PORT is fixed at 1080 for documentation purposes only
+# It's not used on the server, only shown in instructions to users
+USER_PORT="1080"
 
 read -p "MTU (Maximum Transmission Unit) - default: 1232, for better compatibility: 512 (Enter for default): " MTU_VALUE
 if [ -z "$MTU_VALUE" ]; then
@@ -130,7 +125,6 @@ echo "  Domain: $DOMAIN"
 echo "  Server A IP (destination): $SERVER_A_IP"
 echo "  Proxy/Application port on Server A: $PROXY_PORT"
 echo "  Local dnstt port on Server B: $LOCAL_PORT"
-echo "  Local port for users (on their system): $USER_PORT"
 echo "  MTU: $MTU_VALUE"
 echo ""
 read -p "Continue? (y/n): " CONFIRM
