@@ -48,11 +48,33 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-printf "%b" "${RLE}DNS resolver برای DoH (مثال: https://doh.cloudflare.com/dns-query): ${PDF}"
-read DOH_URL
-if [ -z "$DOH_URL" ]; then
-    DOH_URL="https://doh.cloudflare.com/dns-query"
-    printf "%b\n" "${YELLOW}${RLE}استفاده از DNS پیش‌فرض: $DOH_URL${PDF}${NC}"
+printf "%b\n" "${RLE}نوع DNS resolver:${PDF}${NC}"
+printf "%b\n" "${RLE}1. DoH (DNS over HTTPS)${PDF}"
+printf "%b\n" "${RLE}2. DoT (DNS over TLS)${PDF}"
+printf "%b" "${RLE}انتخاب کنید (1 یا 2، پیش‌فرض: 1): ${PDF}"
+read DNS_TYPE
+if [ -z "$DNS_TYPE" ]; then
+    DNS_TYPE="1"
+fi
+
+if [ "$DNS_TYPE" = "2" ]; then
+    printf "%b" "${RLE}آدرس DoT resolver (مثال: dot.cloudflare.com:853): ${PDF}"
+    read DOT_URL
+    if [ -z "$DOT_URL" ]; then
+        DOT_URL="dot.cloudflare.com:853"
+        printf "%b\n" "${YELLOW}${RLE}استفاده از DoT پیش‌فرض: $DOT_URL${PDF}${NC}"
+    fi
+    DNS_METHOD="dot"
+    DNS_URL="$DOT_URL"
+else
+    printf "%b" "${RLE}آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): ${PDF}"
+    read DOH_URL
+    if [ -z "$DOH_URL" ]; then
+        DOH_URL="https://doh.cloudflare.com/dns-query"
+        printf "%b\n" "${YELLOW}${RLE}استفاده از DoH پیش‌فرض: $DOH_URL${PDF}${NC}"
+    fi
+    DNS_METHOD="doh"
+    DNS_URL="$DOH_URL"
 fi
 
 printf "%b" "${RLE}IP سرور A (سرور دریافت کننده ترافیک از B - جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است): ${PDF}"
@@ -86,7 +108,11 @@ fi
 echo ""
 printf "%b\n" "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
 printf "%b\n" "${RLE}  دامنه: $DOMAIN${PDF}"
-printf "%b\n" "${RLE}  DNS: $DOH_URL${PDF}"
+if [ "$DNS_METHOD" = "dot" ]; then
+    printf "%b\n" "${RLE}  DNS: DoT - $DNS_URL${PDF}"
+else
+    printf "%b\n" "${RLE}  DNS: DoH - $DNS_URL${PDF}"
+fi
 printf "%b\n" "${RLE}  IP سرور A (مقصد نهایی): $SERVER_A_IP${PDF}"
 printf "%b\n" "${RLE}  پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT${PDF}"
 printf "%b\n" "${RLE}  پورت محلی dnstt روی سرور B: $LOCAL_PORT${PDF}"
@@ -235,7 +261,13 @@ cat > $WORK_DIR/info.txt << EOF
 ========================================
 
 دامنه: $DOMAIN
-DNS: $DOH_URL
+EOF
+if [ "$DNS_METHOD" = "dot" ]; then
+    echo "DNS: DoT - $DNS_URL" >> $WORK_DIR/info.txt
+else
+    echo "DNS: DoH - $DNS_URL" >> $WORK_DIR/info.txt
+fi
+cat >> $WORK_DIR/info.txt << EOF
 IP سرور A (مقصد نهایی): $SERVER_A_IP
 پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT
 
@@ -263,7 +295,13 @@ $WORK_DIR/dnstt-client
    $WORK_DIR/client_setup.sh
 
    یا به صورت دستی:
-   ./dnstt-client -doh "$DOH_URL" -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
+EOF
+if [ "$DNS_METHOD" = "dot" ]; then
+    echo "   ./dnstt-client -dot \"$DNS_URL\" -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT" >> $WORK_DIR/info.txt
+else
+    echo "   ./dnstt-client -doh \"$DNS_URL\" -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT" >> $WORK_DIR/info.txt
+fi
+cat >> $WORK_DIR/info.txt << EOF
 
 3. در تنظیمات تلگرام، از SOCKS5 proxy استفاده کنید:
    Host: 127.0.0.1

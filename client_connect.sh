@@ -52,10 +52,31 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-printf "%b" "${RLE}DNS resolver DoH (پیش‌فرض: https://doh.cloudflare.com/dns-query): ${PDF}"
-read DOH_URL
-if [ -z "$DOH_URL" ]; then
-    DOH_URL="https://doh.cloudflare.com/dns-query"
+printf "%b\n" "${RLE}نوع DNS resolver:${PDF}${NC}"
+printf "%b\n" "${RLE}1. DoH (DNS over HTTPS)${PDF}"
+printf "%b\n" "${RLE}2. DoT (DNS over TLS)${PDF}"
+printf "%b" "${RLE}انتخاب کنید (1 یا 2، پیش‌فرض: 1): ${PDF}"
+read DNS_TYPE
+if [ -z "$DNS_TYPE" ]; then
+    DNS_TYPE="1"
+fi
+
+if [ "$DNS_TYPE" = "2" ]; then
+    printf "%b" "${RLE}آدرس DoT resolver (مثال: dot.cloudflare.com:853): ${PDF}"
+    read DOT_URL
+    if [ -z "$DOT_URL" ]; then
+        DOT_URL="dot.cloudflare.com:853"
+    fi
+    DNS_METHOD="dot"
+    DNS_URL="$DOT_URL"
+else
+    printf "%b" "${RLE}آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): ${PDF}"
+    read DOH_URL
+    if [ -z "$DOH_URL" ]; then
+        DOH_URL="https://doh.cloudflare.com/dns-query"
+    fi
+    DNS_METHOD="doh"
+    DNS_URL="$DOH_URL"
 fi
 
 printf "%b" "${RLE}مسیر فایل کلید عمومی server.pub: ${PDF}"
@@ -115,7 +136,11 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 printf "%b\n" "${YELLOW}${RLE}تنظیمات:${PDF}${NC}"
 printf "%b\n" "${RLE}  دامنه: $DOMAIN${PDF}"
-printf "%b\n" "${RLE}  DNS: $DOH_URL${PDF}"
+if [ "$DNS_METHOD" = "dot" ]; then
+    printf "%b\n" "${RLE}  DNS: DoT - $DNS_URL${PDF}"
+else
+    printf "%b\n" "${RLE}  DNS: DoH - $DNS_URL${PDF}"
+fi
 printf "%b\n" "${RLE}  پورت محلی: $LOCAL_PORT${PDF}"
 echo ""
 printf "%b\n" "${YELLOW}${RLE}در تنظیمات تلگرام از این تنظیمات استفاده کنید:${PDF}${NC}"
@@ -128,5 +153,9 @@ echo ""
 
 # اجرای client از دایرکتوری کار (همان پوشه server)
 cd $WORK_DIR
-./dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+if [ "$DNS_METHOD" = "dot" ]; then
+    ./dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+else
+    ./dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+fi
 
