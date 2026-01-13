@@ -425,10 +425,14 @@ else
     echo "Binary compiled to: $WORK_DIR_CLIENT/dnstt-client"
 fi
 
-# Run client
-# According to docs: dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
-# or: dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-echo "Connecting..."
+# Ask if user wants to run as service
+echo ""
+echo "Run as systemd service? (y/n, default: n): "
+read -p "" RUN_AS_SERVICE
+if [ -z "$RUN_AS_SERVICE" ]; then
+    RUN_AS_SERVICE="n"
+fi
+
 echo "Please select DNS resolver type:"
 echo "1. DoH (DNS over HTTPS) - example: https://doh.cloudflare.com/dns-query"
 echo "2. DoT (DNS over TLS) - example: dot.cloudflare.com:853"
@@ -443,19 +447,87 @@ if [ "$DNS_TYPE" = "2" ]; then
     if [ -z "$DOT_URL" ]; then
         DOT_URL="dot.cloudflare.com:853"
     fi
-    $WORK_DIR_CLIENT/dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    DNS_METHOD="dot"
+    DNS_URL="$DOT_URL"
 elif [ "$DNS_TYPE" = "3" ]; then
     read -p "DoU resolver address (example: 8.8.8.8:53): " DOU_URL
     if [ -z "$DOU_URL" ]; then
         DOU_URL="8.8.8.8:53"
     fi
-    $WORK_DIR_CLIENT/dnstt-client -udp "$DOU_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    DNS_METHOD="dou"
+    DNS_URL="$DOU_URL"
 else
     read -p "DoH resolver address (example: https://doh.cloudflare.com/dns-query): " DOH_URL
     if [ -z "$DOH_URL" ]; then
         DOH_URL="https://doh.cloudflare.com/dns-query"
     fi
-    $WORK_DIR_CLIENT/dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    DNS_METHOD="doh"
+    DNS_URL="$DOH_URL"
+fi
+
+if [ "$RUN_AS_SERVICE" = "y" ] || [ "$RUN_AS_SERVICE" = "Y" ]; then
+    # Check if running as root
+    if [ "$EUID" -ne 0 ]; then
+        echo "Root privileges required to create systemd service"
+        echo "Please run with sudo or as root"
+        exit 1
+    fi
+    
+    # Build command based on DNS method
+    if [ "$DNS_METHOD" = "dot" ]; then
+        CLIENT_CMD="$WORK_DIR_CLIENT/dnstt-client -dot $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    elif [ "$DNS_METHOD" = "dou" ]; then
+        CLIENT_CMD="$WORK_DIR_CLIENT/dnstt-client -udp $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    else
+        CLIENT_CMD="$WORK_DIR_CLIENT/dnstt-client -doh $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    fi
+    
+    # Create systemd service
+    echo "Creating systemd service..."
+    cat > /etc/systemd/system/dnstt-client.service << EOF
+[Unit]
+Description=DNSTT Client
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WORK_DIR_CLIENT
+ExecStart=$CLIENT_CMD
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # Enable and start service
+    systemctl daemon-reload
+    systemctl enable dnstt-client
+    systemctl restart dnstt-client
+    
+    echo ""
+    echo "Service created and started!"
+    echo ""
+    echo "Service commands:"
+    echo "  Status: systemctl status dnstt-client"
+    echo "  Logs:   journalctl -u dnstt-client -f"
+    echo "  Stop:   systemctl stop dnstt-client"
+    echo "  Start:  systemctl start dnstt-client"
+    echo "  Restart: systemctl restart dnstt-client"
+    echo ""
+    echo "Service status:"
+    systemctl status dnstt-client --no-pager -l
+else
+    echo "Connecting..."
+    # Run client directly
+    if [ "$DNS_METHOD" = "dot" ]; then
+        $WORK_DIR_CLIENT/dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    elif [ "$DNS_METHOD" = "dou" ]; then
+        $WORK_DIR_CLIENT/dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    else
+        $WORK_DIR_CLIENT/dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    fi
 fi
 CLIENT_EOF
 
