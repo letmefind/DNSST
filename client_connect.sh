@@ -20,15 +20,13 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-echo ""
 echo "DNS resolver type:"
 echo "1. DoH (DNS over HTTPS) - Default"
 echo "2. DoT (DNS over TLS)"
-echo ""
-read -p "Select (1 or 2, default: 1, press Enter for DoH): " DNS_TYPE
+echo "3. DoU (DNS over UDP)"
+read -p "Select (1, 2, or 3, default: 1): " DNS_TYPE
 if [ -z "$DNS_TYPE" ]; then
     DNS_TYPE="1"
-    echo -e "${GREEN}Using DoH (default)${NC}"
 fi
 
 if [ "$DNS_TYPE" = "2" ]; then
@@ -38,6 +36,13 @@ if [ "$DNS_TYPE" = "2" ]; then
     fi
     DNS_METHOD="dot"
     DNS_URL="$DOT_URL"
+elif [ "$DNS_TYPE" = "3" ]; then
+    read -p "DoU resolver address (e.g., 8.8.8.8:53): " DOU_URL
+    if [ -z "$DOU_URL" ]; then
+        DOU_URL="8.8.8.8:53"
+    fi
+    DNS_METHOD="dou"
+    DNS_URL="$DOU_URL"
 else
     read -p "DoH resolver address (default: https://doh.cloudflare.com/dns-query): " DOH_URL
     if [ -z "$DOH_URL" ]; then
@@ -154,10 +159,12 @@ echo ""
 # According to dnstt docs:
 # - DoH: ./dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
 # - DoT: ./dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-# - UDP: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
+# - DoU: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
 cd $WORK_DIR
 if [ "$DNS_METHOD" = "dot" ]; then
     ./dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+elif [ "$DNS_METHOD" = "dou" ]; then
+    ./dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
     ./dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 fi
