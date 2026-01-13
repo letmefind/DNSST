@@ -85,15 +85,24 @@ if [ "$LOCAL_PORT" = "53" ]; then
     fi
     
     # Check if anything is listening on port 53
-    if netstat -tuln 2>/dev/null | grep -q ":53 " || ss -tuln 2>/dev/null | grep -q ":53 "; then
-        echo -e "${YELLOW}Warning: Something is still listening on port 53${NC}"
-        echo -e "${YELLOW}Checking what's using port 53:${NC}"
-        netstat -tulpn 2>/dev/null | grep ":53 " || ss -tulpn 2>/dev/null | grep ":53 "
-        echo ""
-        read -p "Continue anyway? (y/n): " CONTINUE_53
-        if [ "$CONTINUE_53" != "y" ] && [ "$CONTINUE_53" != "Y" ]; then
-            echo "Cancelled. Please choose a different port."
-            exit 1
+    PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep ":53 " || ss -tulpn 2>/dev/null | grep ":53 " || echo "")
+    if [ -n "$PORT_53_USAGE" ]; then
+        # Check if it's our own dnstt-server
+        if echo "$PORT_53_USAGE" | grep -q "dnstt-server"; then
+            echo -e "${YELLOW}dnstt-server is already running on port 53. Stopping it...${NC}"
+            systemctl stop dnstt-server 2>/dev/null || pkill -f dnstt-server
+            sleep 2
+            echo -e "${GREEN}Previous dnstt-server stopped${NC}"
+        else
+            echo -e "${YELLOW}Warning: Something is still listening on port 53${NC}"
+            echo -e "${YELLOW}Checking what's using port 53:${NC}"
+            echo "$PORT_53_USAGE"
+            echo ""
+            read -p "Continue anyway? (y/n): " CONTINUE_53
+            if [ "$CONTINUE_53" != "y" ] && [ "$CONTINUE_53" != "Y" ]; then
+                echo "Cancelled. Please choose a different port."
+                exit 1
+            fi
         fi
     else
         echo -e "${GREEN}Port 53 is available${NC}"
@@ -105,7 +114,9 @@ if [ -z "$USER_PORT" ]; then
     USER_PORT="1080"
     echo -e "${YELLOW}Using default port: $USER_PORT${NC}"
 fi
-echo -e "${YELLOW}Note: This port is only for documentation. Users will use this port locally (127.0.0.1:$USER_PORT) on their system.${NC}"
+echo -e "${YELLOW}Note: This port is ONLY for documentation/info.txt file.${NC}"
+echo -e "${YELLOW}      It's the local port where dnstt-client will listen on user's system (127.0.0.1:$USER_PORT).${NC}"
+echo -e "${YELLOW}      This port is NOT used on the server - it's only shown in instructions to users.${NC}"
 
 read -p "MTU (Maximum Transmission Unit) - default: 1232, for better compatibility: 512 (Enter for default): " MTU_VALUE
 if [ -z "$MTU_VALUE" ]; then
