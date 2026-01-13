@@ -84,18 +84,81 @@ if [ "$LOCAL_PORT" = "53" ]; then
         echo -e "${GREEN}named stopped and disabled${NC}"
     fi
     
-    # Check if anything is listening on port 53
-    PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep ":53 " || ss -tulpn 2>/dev/null | grep ":53 " || echo "")
-    if [ -n "$PORT_53_USAGE" ]; then
-        # Check if it's our own dnstt-server
-        if echo "$PORT_53_USAGE" | grep -q "dnstt-server"; then
-            echo -e "${YELLOW}dnstt-server is already running on port 53. Stopping it...${NC}"
-            systemctl stop dnstt-server 2>/dev/null || pkill -f dnstt-server
-            sleep 2
-            echo -e "${GREEN}Previous dnstt-server stopped${NC}"
-        else
-            echo -e "${YELLOW}Warning: Something is still listening on port 53${NC}"
-            echo -e "${YELLOW}Checking what's using port 53:${NC}"
+    # Function to forcefully free port 53
+    free_port_53() {
+        local max_attempts=5
+        local attempt=0
+        
+        while [ $attempt -lt $max_attempts ]; do
+            # Check if anything is listening on port 53 (UDP)
+            PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+            
+            if [ -z "$PORT_53_USAGE" ]; then
+                echo -e "${GREEN}Port 53 is now free${NC}"
+                return 0
+            fi
+            
+            # Try to extract PID - works with both netstat and ss
+            # netstat format: udp6  0  0  :::53  :::*  28381/./dnstt-server
+            # ss format: udp  UNCONN 0  0  *:53  *:*  28381/./dnstt-server
+            PID=$(echo "$PORT_53_USAGE" | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\//) {print $i; exit}}' | cut -d'/' -f1)
+            
+            if [ -n "$PID" ] && [ "$PID" != "-" ] && [ "$PID" != "0" ]; then
+                PROCESS_NAME=$(ps -p $PID -o comm= 2>/dev/null || echo "unknown")
+                echo -e "${YELLOW}Found process $PROCESS_NAME (PID: $PID) using port 53. Killing it...${NC}"
+                kill -9 $PID 2>/dev/null
+                sleep 2
+            else
+                # Try to find by process name patterns
+                if echo "$PORT_53_USAGE" | grep -q "dnstt-server"; then
+                    echo -e "${YELLOW}Killing dnstt-server processes...${NC}"
+                    systemctl stop dnstt-server 2>/dev/null
+                    pkill -9 -f dnstt-server 2>/dev/null
+                    sleep 2
+                elif echo "$PORT_53_USAGE" | grep -q "systemd-resolved"; then
+                    echo -e "${YELLOW}Forcefully stopping systemd-resolved...${NC}"
+                    systemctl stop systemd-resolved 2>/dev/null
+                    pkill -9 systemd-resolved 2>/dev/null
+                    sleep 2
+                elif echo "$PORT_53_USAGE" | grep -q "dnsmasq"; then
+                    echo -e "${YELLOW}Forcefully stopping dnsmasq...${NC}"
+                    systemctl stop dnsmasq 2>/dev/null
+                    pkill -9 dnsmasq 2>/dev/null
+                    sleep 2
+                elif echo "$PORT_53_USAGE" | grep -q "named\|bind"; then
+                    echo -e "${YELLOW}Forcefully stopping named/bind...${NC}"
+                    systemctl stop named 2>/dev/null
+                    systemctl stop bind9 2>/dev/null
+                    pkill -9 named 2>/dev/null
+                    sleep 2
+                else
+                    # Try fuser as last resort
+                    if command -v fuser &> /dev/null; then
+                        echo -e "${YELLOW}Trying to kill process using port 53 with fuser...${NC}"
+                        fuser -k 53/udp 2>/dev/null
+                        sleep 2
+                    else
+                        echo -e "${YELLOW}Unknown process using port 53:${NC}"
+                        echo "$PORT_53_USAGE"
+                        echo ""
+                        read -p "Continue anyway? (y/n): " CONTINUE_53
+                        if [ "$CONTINUE_53" != "y" ] && [ "$CONTINUE_53" != "Y" ]; then
+                            echo "Cancelled. Please choose a different port."
+                            exit 1
+                        fi
+                        return 1
+                    fi
+                fi
+            fi
+            
+            attempt=$((attempt + 1))
+        done
+        
+        # Final check
+        PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+        if [ -n "$PORT_53_USAGE" ]; then
+            echo -e "${RED}Failed to free port 53 after $max_attempts attempts${NC}"
+            echo -e "${YELLOW}Port 53 is still in use:${NC}"
             echo "$PORT_53_USAGE"
             echo ""
             read -p "Continue anyway? (y/n): " CONTINUE_53
@@ -103,10 +166,13 @@ if [ "$LOCAL_PORT" = "53" ]; then
                 echo "Cancelled. Please choose a different port."
                 exit 1
             fi
+        else
+            echo -e "${GREEN}Port 53 is now free${NC}"
         fi
-    else
-        echo -e "${GREEN}Port 53 is available${NC}"
-    fi
+    }
+    
+    # Free port 53
+    free_port_53
     
     # Configure resolv.conf to use external DNS servers
     echo -e "${YELLOW}Configuring /etc/resolv.conf to use external DNS servers...${NC}"
@@ -242,6 +308,40 @@ EOF
 # Enable and start service
 systemctl daemon-reload
 systemctl enable dnstt-server
+
+# Final check for port 53 before starting service
+if [ "$LOCAL_PORT" = "53" ]; then
+    echo -e "${YELLOW}Final check: Ensuring port 53 is free before starting service...${NC}"
+    PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+    if [ -n "$PORT_53_USAGE" ]; then
+        echo -e "${YELLOW}Port 53 is still in use. Attempting to free it...${NC}"
+        # Stop any remaining processes
+        systemctl stop dnstt-server 2>/dev/null
+        pkill -9 -f dnstt-server 2>/dev/null
+        systemctl stop systemd-resolved 2>/dev/null
+        pkill -9 systemd-resolved 2>/dev/null
+        pkill -9 dnsmasq 2>/dev/null
+        pkill -9 named 2>/dev/null
+        sleep 2
+        
+        # Try fuser if available
+        if command -v fuser &> /dev/null; then
+            fuser -k 53/udp 2>/dev/null
+            sleep 1
+        fi
+        
+        # Final verification
+        PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+        if [ -n "$PORT_53_USAGE" ]; then
+            echo -e "${RED}Warning: Port 53 is still in use:${NC}"
+            echo "$PORT_53_USAGE"
+            echo -e "${YELLOW}Service may fail to start. Continuing anyway...${NC}"
+        else
+            echo -e "${GREEN}Port 53 is now free${NC}"
+        fi
+    fi
+fi
+
 systemctl restart dnstt-server
 
 # Configure iptables for firewall and redirect
