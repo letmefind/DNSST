@@ -399,7 +399,11 @@ echo "Connecting..."
 echo "Please select DNS resolver type:"
 echo "1. DoH (DNS over HTTPS) - example: https://doh.cloudflare.com/dns-query"
 echo "2. DoT (DNS over TLS) - example: dot.cloudflare.com:853"
-read -p "Choice (1 or 2): " DNS_TYPE
+echo "3. DoU (DNS over UDP) - example: 8.8.8.8:53"
+read -p "Choice (1, 2, or 3, default: 1): " DNS_TYPE
+if [ -z "$DNS_TYPE" ]; then
+    DNS_TYPE="1"
+fi
 
 if [ "$DNS_TYPE" = "2" ]; then
     read -p "DoT resolver address (example: dot.cloudflare.com:853): " DOT_URL
@@ -407,6 +411,12 @@ if [ "$DNS_TYPE" = "2" ]; then
         DOT_URL="dot.cloudflare.com:853"
     fi
     ./dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+elif [ "$DNS_TYPE" = "3" ]; then
+    read -p "DoU resolver address (example: 8.8.8.8:53): " DOU_URL
+    if [ -z "$DOU_URL" ]; then
+        DOU_URL="8.8.8.8:53"
+    fi
+    ./dnstt-client -udp "$DOU_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
     read -p "DoH resolver address (example: https://doh.cloudflare.com/dns-query): " DOH_URL
     if [ -z "$DOH_URL" ]; then
