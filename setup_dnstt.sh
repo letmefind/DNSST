@@ -44,19 +44,19 @@ if [ -z "$DOH_URL" ]; then
     echo -e "${YELLOW}${RLE}استفاده از DNS پیش‌فرض: $DOH_URL${PDF}${NC}"
 fi
 
-read -p "${RLE}IP سرور A (جایی که پراکسی تلگرام نصب است): ${PDF}" SERVER_A_IP
+read -p "${RLE}IP سرور A (سرور دریافت کننده ترافیک از B - جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است): ${PDF}" SERVER_A_IP
 if [ -z "$SERVER_A_IP" ]; then
     echo -e "${RED}${RLE}IP سرور A نمی‌تواند خالی باشد${PDF}${NC}"
     exit 1
 fi
 
-read -p "${RLE}پورت پراکسی تلگرام روی سرور A (مثال: 1080): ${PDF}" PROXY_PORT
+read -p "${RLE}پورت پراکسی/اپلیکیشن روی سرور A (مثال: 1080): ${PDF}" PROXY_PORT
 if [ -z "$PROXY_PORT" ]; then
     PROXY_PORT="1080"
     echo -e "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $PROXY_PORT${PDF}${NC}"
 fi
 
-read -p "${RLE}پورت محلی برای dnstt-server روی سرور B (مثال: 5300): ${PDF}" LOCAL_PORT
+read -p "${RLE}پورت محلی برای dnstt-server روی سرور B (سرور دریافت کننده ترافیک کاربران - مثال: 5300): ${PDF}" LOCAL_PORT
 if [ -z "$LOCAL_PORT" ]; then
     LOCAL_PORT="5300"
     echo -e "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $LOCAL_PORT${PDF}${NC}"
@@ -72,10 +72,10 @@ echo ""
 echo -e "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
 echo -e "${RLE}  دامنه: $DOMAIN${PDF}"
 echo -e "${RLE}  DNS: $DOH_URL${PDF}"
-echo -e "${RLE}  IP سرور A: $SERVER_A_IP${PDF}"
-echo -e "${RLE}  پورت پراکسی: $PROXY_PORT${PDF}"
-echo -e "${RLE}  پورت محلی dnstt: $LOCAL_PORT${PDF}"
-echo -e "${RLE}  پورت کاربران: $USER_PORT${PDF}"
+echo -e "${RLE}  IP سرور A (مقصد نهایی): $SERVER_A_IP${PDF}"
+echo -e "${RLE}  پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT${PDF}"
+echo -e "${RLE}  پورت محلی dnstt روی سرور B: $LOCAL_PORT${PDF}"
+echo -e "${RLE}  پورت خروجی برای کاربران: $USER_PORT${PDF}"
 echo ""
 read -p "${RLE}ادامه می‌دهید؟ (y/n): ${PDF}" CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
@@ -220,8 +220,12 @@ cat > $WORK_DIR/info.txt << EOF
 
 دامنه: $DOMAIN
 DNS: $DOH_URL
-IP سرور A: $SERVER_A_IP
-پورت پراکسی: $PROXY_PORT
+IP سرور A (مقصد نهایی): $SERVER_A_IP
+پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT
+
+توضیح:
+- سرور B: سرور دریافت کننده ترافیک کاربران (جایی که این اسکریپت اجرا می‌شود)
+- سرور A: سرور دریافت کننده ترافیک از B (جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است)
 
 کلید عمومی (PUBKEY):
 $PUBKEY
