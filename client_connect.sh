@@ -88,11 +88,21 @@ mkdir -p $WORK_DIR
 
 # Check script directory for pre-compiled binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Priority 1: Check for binary in repository binaries/ folder
+REPO_BINARIES_CLIENT="$SCRIPT_DIR/binaries/dnstt-client"
+
+# Priority 2: Check for binary in local dnstt folder
 LOCAL_DNSTT_CLIENT="$SCRIPT_DIR/dnstt/dnstt-client/dnstt-client"
 
-# Check for pre-compiled binary
-if [ -f "$LOCAL_DNSTT_CLIENT" ]; then
-    echo -e "${GREEN}Using existing pre-compiled binary...${NC}"
+# Check for pre-compiled binary (repository binary first, then local)
+if [ -f "$REPO_BINARIES_CLIENT" ]; then
+    echo -e "${GREEN}Using binary from repository...${NC}"
+    cp "$REPO_BINARIES_CLIENT" $WORK_DIR/dnstt-client
+    chmod +x $WORK_DIR/dnstt-client
+    echo -e "${GREEN}File copied${NC}"
+elif [ -f "$LOCAL_DNSTT_CLIENT" ]; then
+    echo -e "${GREEN}Using existing local pre-compiled binary...${NC}"
     cp "$LOCAL_DNSTT_CLIENT" $WORK_DIR/dnstt-client
     chmod +x $WORK_DIR/dnstt-client
     echo -e "${GREEN}File copied${NC}"
