@@ -52,15 +52,24 @@ else
     DNS_URL="$DOH_URL"
 fi
 
-read -p "Public key file path (server.pub): " PUBKEY_FILE
-if [ -z "$PUBKEY_FILE" ]; then
-    PUBKEY_FILE="./server.pub"
-fi
+echo ""
+echo -e "${YELLOW}Enter the public key string (exported from server installation):${NC}"
+echo -e "${YELLOW}Example format: pubkey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx${NC}"
+read -p "Public key: " PUBKEY_STRING
 
-if [ ! -f "$PUBKEY_FILE" ]; then
-    echo -e "${RED}Public key file not found: $PUBKEY_FILE${NC}"
+if [ -z "$PUBKEY_STRING" ]; then
+    echo -e "${RED}Public key cannot be empty${NC}"
     exit 1
 fi
+
+# Create work directory first
+WORK_DIR="$HOME/dnstt-client"
+mkdir -p $WORK_DIR
+
+# Save public key to file
+PUBKEY_FILE="$WORK_DIR/server.pub"
+echo "$PUBKEY_STRING" > "$PUBKEY_FILE"
+echo -e "${GREEN}Public key saved to: $PUBKEY_FILE${NC}"
 
 read -p "Local port for connection (default: 1080): " LOCAL_PORT
 if [ -z "$LOCAL_PORT" ]; then

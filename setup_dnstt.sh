@@ -372,13 +372,25 @@ cat > $WORK_DIR/client_setup.sh << 'CLIENT_EOF'
 
 # Get user input
 read -p "Domain: " DOMAIN
-read -p "Public key file path (server.pub): " PUBKEY_FILE
+echo ""
+echo "Enter the public key string (exported from server installation):"
+echo "Example format: pubkey:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+read -p "Public key: " PUBKEY_STRING
 read -p "Local port for connection (default: 1080): " LOCAL_PORT
 
-if [ -z "$DOMAIN" ] || [ -z "$PUBKEY_FILE" ] || [ -z "$LOCAL_PORT" ]; then
+if [ -z "$DOMAIN" ] || [ -z "$PUBKEY_STRING" ] || [ -z "$LOCAL_PORT" ]; then
     echo "All fields are required"
     exit 1
 fi
+
+# Create work directory
+WORK_DIR_CLIENT="$HOME/dnstt-client"
+mkdir -p $WORK_DIR_CLIENT
+
+# Save public key to file
+PUBKEY_FILE="$WORK_DIR_CLIENT/server.pub"
+echo "$PUBKEY_STRING" > "$PUBKEY_FILE"
+echo "Public key saved to: $PUBKEY_FILE"
 
 # Download and compile dnstt-client
 WORK_DIR="$HOME/dnstt-client"
