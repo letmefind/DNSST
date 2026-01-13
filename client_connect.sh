@@ -76,10 +76,6 @@ if [ -z "$LOCAL_PORT" ]; then
     LOCAL_PORT="1080"
 fi
 
-# Create work directory
-WORK_DIR="$HOME/dnstt-client"
-mkdir -p $WORK_DIR
-
 # Check script directory for pre-compiled binary
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
