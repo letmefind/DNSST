@@ -81,6 +81,13 @@ if [ -z "$USER_PORT" ]; then
     printf "%b\n" "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $USER_PORT${PDF}${NC}"
 fi
 
+printf "%b" "${RLE}MTU (Maximum Transmission Unit) - پیش‌فرض: 1232، برای سازگاری بیشتر: 512 (Enter برای پیش‌فرض): ${PDF}"
+read MTU_VALUE
+if [ -z "$MTU_VALUE" ]; then
+    MTU_VALUE="1232"
+    printf "%b\n" "${YELLOW}${RLE}استفاده از MTU پیش‌فرض: $MTU_VALUE${PDF}${NC}"
+fi
+
 echo ""
 printf "%b\n" "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
 printf "%b\n" "${RLE}  دامنه: $DOMAIN${PDF}"
@@ -88,6 +95,7 @@ printf "%b\n" "${RLE}  IP سرور A (مقصد نهایی): $SERVER_A_IP${PDF}"
 printf "%b\n" "${RLE}  پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT${PDF}"
 printf "%b\n" "${RLE}  پورت محلی dnstt روی سرور B: $LOCAL_PORT${PDF}"
 printf "%b\n" "${RLE}  پورت خروجی برای کاربران: $USER_PORT${PDF}"
+printf "%b\n" "${RLE}  MTU: $MTU_VALUE${PDF}"
 echo ""
 printf "%b" "${RLE}ادامه می‌دهید؟ (y/n): ${PDF}"
 read CONFIRM
@@ -146,8 +154,8 @@ $WORK_DIR/dnstt-server -gen-key -privkey-file $WORK_DIR/server.key -pubkey-file 
 PUBKEY=$(cat $WORK_DIR/server.pub | grep "pubkey" | awk '{print $2}')
 
 # ایجاد فایل systemd service برای dnstt-server
-# طبق مستندات: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
-# می‌توانید -mtu را هم اضافه کنید: -mtu 1232 (پیش‌فرض) یا -mtu 512 (برای سازگاری بیشتر)
+# طبق مستندات: dnstt-server -udp :PORT -mtu SIZE -privkey-file KEY DOMAIN TARGET:PORT
+# -mtu 1232 (پیش‌فرض) برای عملکرد بهتر، -mtu 512 برای سازگاری بیشتر
 printf "%b\n" "${YELLOW}${RLE}در حال ایجاد سرویس systemd...${PDF}${NC}"
 cat > /etc/systemd/system/dnstt-server.service << EOF
 [Unit]
@@ -158,7 +166,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=$WORK_DIR
-ExecStart=$WORK_DIR/dnstt-server -udp :$LOCAL_PORT -privkey-file $WORK_DIR/server.key $DOMAIN $SERVER_A_IP:$PROXY_PORT
+ExecStart=$WORK_DIR/dnstt-server -udp :$LOCAL_PORT -mtu $MTU_VALUE -privkey-file $WORK_DIR/server.key $DOMAIN $SERVER_A_IP:$PROXY_PORT
 Restart=always
 RestartSec=10
 
