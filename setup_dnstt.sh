@@ -384,7 +384,7 @@ if [ -z "$DOMAIN" ] || [ -z "$PUBKEY_STRING" ] || [ -z "$LOCAL_PORT" ]; then
 fi
 
 # Create work directory
-WORK_DIR_CLIENT="$HOME/dnstt-client"
+WORK_DIR_CLIENT="/opt/dnstt"
 mkdir -p $WORK_DIR_CLIENT
 
 # Save public key to file
@@ -392,17 +392,38 @@ PUBKEY_FILE="$WORK_DIR_CLIENT/server.pub"
 echo "$PUBKEY_STRING" > "$PUBKEY_FILE"
 echo "Public key saved to: $PUBKEY_FILE"
 
-# Download and compile dnstt-client
-WORK_DIR="$HOME/dnstt-client"
-mkdir -p $WORK_DIR
-cd $WORK_DIR
+# Check script directory for pre-compiled binary
+SCRIPT_DIR_CLIENT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_BINARIES_CLIENT="$SCRIPT_DIR_CLIENT/binaries/dnstt-client"
+LOCAL_DNSTT_CLIENT="$SCRIPT_DIR_CLIENT/dnstt/dnstt-client/dnstt-client"
 
-if [ ! -d "dnstt" ]; then
-    git clone https://github.com/Mygod/dnstt.git
+# Check for pre-compiled binary (repository binary first, then local)
+if [ -f "$REPO_BINARIES_CLIENT" ]; then
+    echo "Using binary from repository..."
+    cp "$REPO_BINARIES_CLIENT" $WORK_DIR_CLIENT/dnstt-client
+    chmod +x $WORK_DIR_CLIENT/dnstt-client
+    echo "Binary copied to: $WORK_DIR_CLIENT/dnstt-client"
+elif [ -f "$LOCAL_DNSTT_CLIENT" ]; then
+    echo "Using existing local pre-compiled binary..."
+    cp "$LOCAL_DNSTT_CLIENT" $WORK_DIR_CLIENT/dnstt-client
+    chmod +x $WORK_DIR_CLIENT/dnstt-client
+    echo "Binary copied to: $WORK_DIR_CLIENT/dnstt-client"
+else
+    echo "Pre-compiled binary not found. Downloading and compiling..."
+    # Use temporary directory for compilation
+    TEMP_DIR="$HOME/dnstt-temp"
+    mkdir -p $TEMP_DIR
+    cd $TEMP_DIR
+    
+    if [ ! -d "dnstt" ]; then
+        git clone https://github.com/Mygod/dnstt.git
+    fi
+    
+    cd dnstt/plugin
+    go build -o $WORK_DIR_CLIENT/dnstt-client ./dnstt-client
+    chmod +x $WORK_DIR_CLIENT/dnstt-client
+    echo "Binary compiled to: $WORK_DIR_CLIENT/dnstt-client"
 fi
-
-cd dnstt/plugin
-go build -o dnstt-client ./dnstt-client
 
 # Run client
 # According to docs: dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
@@ -422,19 +443,19 @@ if [ "$DNS_TYPE" = "2" ]; then
     if [ -z "$DOT_URL" ]; then
         DOT_URL="dot.cloudflare.com:853"
     fi
-    ./dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR_CLIENT/dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 elif [ "$DNS_TYPE" = "3" ]; then
     read -p "DoU resolver address (example: 8.8.8.8:53): " DOU_URL
     if [ -z "$DOU_URL" ]; then
         DOU_URL="8.8.8.8:53"
     fi
-    ./dnstt-client -udp "$DOU_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR_CLIENT/dnstt-client -udp "$DOU_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
     read -p "DoH resolver address (example: https://doh.cloudflare.com/dns-query): " DOH_URL
     if [ -z "$DOH_URL" ]; then
         DOH_URL="https://doh.cloudflare.com/dns-query"
     fi
-    ./dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR_CLIENT/dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 fi
 CLIENT_EOF
 

@@ -63,7 +63,7 @@ if [ -z "$PUBKEY_STRING" ]; then
 fi
 
 # Create work directory first
-WORK_DIR="$HOME/dnstt-client"
+WORK_DIR="/opt/dnstt"
 mkdir -p $WORK_DIR
 
 # Save public key to file
@@ -94,12 +94,12 @@ if [ -f "$REPO_BINARIES_CLIENT" ]; then
     echo -e "${GREEN}Using binary from repository...${NC}"
     cp "$REPO_BINARIES_CLIENT" $WORK_DIR/dnstt-client
     chmod +x $WORK_DIR/dnstt-client
-    echo -e "${GREEN}File copied${NC}"
+    echo -e "${GREEN}Binary copied to: $WORK_DIR/dnstt-client${NC}"
 elif [ -f "$LOCAL_DNSTT_CLIENT" ]; then
     echo -e "${GREEN}Using existing local pre-compiled binary...${NC}"
     cp "$LOCAL_DNSTT_CLIENT" $WORK_DIR/dnstt-client
     chmod +x $WORK_DIR/dnstt-client
-    echo -e "${GREEN}File copied${NC}"
+    echo -e "${GREEN}Binary copied to: $WORK_DIR/dnstt-client${NC}"
 else
     echo -e "${YELLOW}Pre-compiled binary not found. Downloading and compiling...${NC}"
     # Install Go if not installed (only needed for compilation)
@@ -125,7 +125,10 @@ else
         fi
     fi
     
-    cd $WORK_DIR
+    # Use temporary directory for compilation
+    TEMP_DIR="$HOME/dnstt-temp"
+    mkdir -p $TEMP_DIR
+    cd $TEMP_DIR
     
     # Download and compile
     if [ ! -d "dnstt" ]; then
@@ -139,6 +142,8 @@ else
     if [ ! -f "$WORK_DIR/dnstt-client" ]; then
         echo -e "${YELLOW}Compiling dnstt-client...${NC}"
         go build -o $WORK_DIR/dnstt-client ./dnstt-client
+        chmod +x $WORK_DIR/dnstt-client
+        echo -e "${GREEN}Binary compiled to: $WORK_DIR/dnstt-client${NC}"
     fi
 fi
 
@@ -171,11 +176,10 @@ echo ""
 # - DoH: ./dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
 # - DoT: ./dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
 # - DoU: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-cd $WORK_DIR
 if [ "$DNS_METHOD" = "dot" ]; then
-    ./dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR/dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 elif [ "$DNS_METHOD" = "dou" ]; then
-    ./dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR/dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
-    ./dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    $WORK_DIR/dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 fi
