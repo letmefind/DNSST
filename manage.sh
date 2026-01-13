@@ -31,6 +31,7 @@ show_menu() {
     echo "8. Show public key"
     echo "9. Check ports"
     echo "10. Check iptables"
+    echo "11. Free port 53 (if using port 53)"
     echo "0. Exit"
     echo ""
 }
@@ -101,6 +102,57 @@ check_iptables() {
     iptables -L INPUT -n -v
 }
 
+free_port_53() {
+    echo -e "${YELLOW}Freeing port 53...${NC}"
+    
+    # Stop services
+    systemctl stop dnstt-server 2>/dev/null
+    systemctl stop systemd-resolved 2>/dev/null
+    systemctl stop dnsmasq 2>/dev/null
+    systemctl stop named 2>/dev/null
+    systemctl stop bind9 2>/dev/null
+    
+    # Kill processes
+    pkill -9 -f dnstt-server 2>/dev/null
+    pkill -9 systemd-resolved 2>/dev/null
+    pkill -9 dnsmasq 2>/dev/null
+    pkill -9 named 2>/dev/null
+    
+    sleep 2
+    
+    # Check what's using port 53
+    PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+    
+    if [ -n "$PORT_53_USAGE" ]; then
+        # Try to extract and kill PID
+        PID=$(echo "$PORT_53_USAGE" | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\//) {print $i; exit}}' | cut -d'/' -f1)
+        if [ -n "$PID" ] && [ "$PID" != "-" ] && [ "$PID" != "0" ]; then
+            echo -e "${YELLOW}Killing process PID: $PID${NC}"
+            kill -9 $PID 2>/dev/null
+            sleep 1
+        fi
+        
+        # Try fuser if available
+        if command -v fuser &> /dev/null; then
+            echo -e "${YELLOW}Using fuser to kill processes on port 53...${NC}"
+            fuser -k 53/udp 2>/dev/null
+            sleep 1
+        fi
+        
+        # Final check
+        PORT_53_USAGE=$(netstat -tulpn 2>/dev/null | grep -E "udp.*:53 " || ss -tulpn 2>/dev/null | grep -E "udp.*:53 " || echo "")
+        if [ -n "$PORT_53_USAGE" ]; then
+            echo -e "${RED}Port 53 is still in use:${NC}"
+            echo "$PORT_53_USAGE"
+            echo -e "${YELLOW}You may need to manually investigate${NC}"
+        else
+            echo -e "${GREEN}Port 53 is now free${NC}"
+        fi
+    else
+        echo -e "${GREEN}Port 53 is already free${NC}"
+    fi
+}
+
 while true; do
     show_menu
     read -p "Select option: " choice
@@ -136,6 +188,9 @@ while true; do
             ;;
         10)
             check_iptables
+            ;;
+        11)
+            free_port_53
             ;;
         0)
             echo "Exiting..."
