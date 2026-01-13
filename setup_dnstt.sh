@@ -19,7 +19,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Get user input
-read -p "Your domain (e.g., tunnel.example.com): " DOMAIN
+read -p "Your DNS domain (e.g., tunnel.example.com): " DOMAIN
 if [ -z "$DOMAIN" ]; then
     echo -e "${RED}Domain cannot be empty${NC}"
     exit 1
@@ -30,10 +30,10 @@ fi
 # Server only receives UDP DNS queries
 # According to docs: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
 
-read -p "Server A IP (destination server - where proxy/application is installed): " SERVER_A_IP
+read -p "Server A IP (destination server - where proxy/application is installed, default: 127.0.0.1): " SERVER_A_IP
 if [ -z "$SERVER_A_IP" ]; then
-    echo -e "${RED}Server A IP cannot be empty${NC}"
-    exit 1
+    SERVER_A_IP="127.0.0.1"
+    echo -e "${YELLOW}Using default: $SERVER_A_IP${NC}"
 fi
 
 read -p "Proxy/Application port on Server A (default: 1080): " PROXY_PORT
@@ -46,6 +46,58 @@ read -p "Local port for dnstt-server on Server B (receiving user traffic - defau
 if [ -z "$LOCAL_PORT" ]; then
     LOCAL_PORT="5300"
     echo -e "${YELLOW}Using default port: $LOCAL_PORT${NC}"
+fi
+
+# Check if port 53 is selected and handle DNS service conflicts
+if [ "$LOCAL_PORT" = "53" ]; then
+    echo -e "${YELLOW}Port 53 selected. Checking for DNS service conflicts...${NC}"
+    
+    # Check if systemd-resolved is running
+    if systemctl is-active --quiet systemd-resolved 2>/dev/null; then
+        echo -e "${YELLOW}systemd-resolved is running on port 53. Stopping it...${NC}"
+        systemctl stop systemd-resolved
+        systemctl disable systemd-resolved
+        echo -e "${GREEN}systemd-resolved stopped and disabled${NC}"
+    fi
+    
+    # Check if dnsmasq is running
+    if systemctl is-active --quiet dnsmasq 2>/dev/null; then
+        echo -e "${YELLOW}dnsmasq is running on port 53. Stopping it...${NC}"
+        systemctl stop dnsmasq
+        systemctl disable dnsmasq
+        echo -e "${GREEN}dnsmasq stopped and disabled${NC}"
+    fi
+    
+    # Check if bind9 is running
+    if systemctl is-active --quiet bind9 2>/dev/null; then
+        echo -e "${YELLOW}bind9 is running on port 53. Stopping it...${NC}"
+        systemctl stop bind9
+        systemctl disable bind9
+        echo -e "${GREEN}bind9 stopped and disabled${NC}"
+    fi
+    
+    # Check if named is running
+    if systemctl is-active --quiet named 2>/dev/null; then
+        echo -e "${YELLOW}named is running on port 53. Stopping it...${NC}"
+        systemctl stop named
+        systemctl disable named
+        echo -e "${GREEN}named stopped and disabled${NC}"
+    fi
+    
+    # Check if anything is listening on port 53
+    if netstat -tuln 2>/dev/null | grep -q ":53 " || ss -tuln 2>/dev/null | grep -q ":53 "; then
+        echo -e "${YELLOW}Warning: Something is still listening on port 53${NC}"
+        echo -e "${YELLOW}Checking what's using port 53:${NC}"
+        netstat -tulpn 2>/dev/null | grep ":53 " || ss -tulpn 2>/dev/null | grep ":53 "
+        echo ""
+        read -p "Continue anyway? (y/n): " CONTINUE_53
+        if [ "$CONTINUE_53" != "y" ] && [ "$CONTINUE_53" != "Y" ]; then
+            echo "Cancelled. Please choose a different port."
+            exit 1
+        fi
+    else
+        echo -e "${GREEN}Port 53 is available${NC}"
+    fi
 fi
 
 read -p "Output port for users (default: 1080): " USER_PORT
