@@ -223,13 +223,6 @@ if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
     exit 1
 fi
 
-# Install Go if not installed
-if ! command -v go &> /dev/null; then
-    echo -e "${YELLOW}Installing Go...${NC}"
-    apt-get update
-    apt-get install -y golang-go
-fi
-
 # Create work directory
 WORK_DIR="/opt/dnstt"
 mkdir -p $WORK_DIR
@@ -260,6 +253,12 @@ elif [ -f "$LOCAL_DNSTT_SERVER" ] && [ -f "$LOCAL_DNSTT_CLIENT" ]; then
     echo -e "${GREEN}Files copied${NC}"
 else
     echo -e "${YELLOW}Pre-compiled binaries not found. Downloading and compiling...${NC}"
+    # Install Go if not installed (only needed for compilation)
+    if ! command -v go &> /dev/null; then
+        echo -e "${YELLOW}Go is not installed. Installing...${NC}"
+        apt-get update
+        apt-get install -y golang-go
+    fi
     cd $WORK_DIR
     
     # Download and compile dnstt

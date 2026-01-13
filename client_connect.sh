@@ -13,29 +13,6 @@ echo -e "${BLUE}  Connect to DNSTT Tunnel${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Check if Go is installed
-if ! command -v go &> /dev/null; then
-    echo -e "${YELLOW}Go is not installed. Installing...${NC}"
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if command -v apt-get &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y golang-go
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y golang
-        else
-            echo -e "${RED}Please install Go manually${NC}"
-            exit 1
-        fi
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        if command -v brew &> /dev/null; then
-            brew install go
-        else
-            echo -e "${RED}Please install Go manually${NC}"
-            exit 1
-        fi
-    fi
-fi
-
 # Get user input
 read -p "Domain (e.g., tunnel.example.com): " DOMAIN
 if [ -z "$DOMAIN" ]; then
@@ -44,7 +21,7 @@ if [ -z "$DOMAIN" ]; then
 fi
 
 echo "DNS resolver type:"
-echo "1. DoH (DNS over HTTPS)"
+echo "1. DoH (DNS over HTTPS) - Default"
 echo "2. DoT (DNS over TLS)"
 read -p "Select (1 or 2, default: 1): " DNS_TYPE
 if [ -z "$DNS_TYPE" ]; then
@@ -108,6 +85,29 @@ elif [ -f "$LOCAL_DNSTT_CLIENT" ]; then
     echo -e "${GREEN}File copied${NC}"
 else
     echo -e "${YELLOW}Pre-compiled binary not found. Downloading and compiling...${NC}"
+    # Install Go if not installed (only needed for compilation)
+    if ! command -v go &> /dev/null; then
+        echo -e "${YELLOW}Go is not installed. Installing...${NC}"
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            if command -v apt-get &> /dev/null; then
+                sudo apt-get update
+                sudo apt-get install -y golang-go
+            elif command -v yum &> /dev/null; then
+                sudo yum install -y golang
+            else
+                echo -e "${RED}Please install Go manually${NC}"
+                exit 1
+            fi
+        elif [[ "$OSTYPE" == "darwin"* ]]; then
+            if command -v brew &> /dev/null; then
+                brew install go
+            else
+                echo -e "${RED}Please install Go manually${NC}"
+                exit 1
+            fi
+        fi
+    fi
+    
     cd $WORK_DIR
     
     # Download and compile
