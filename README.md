@@ -2,6 +2,15 @@
 
 این اسکریپت برای راه‌اندازی یک تونل DNS بین سرور B و کاربران استفاده می‌شود تا ترافیک از طریق DNS به سرور A (که پراکسی تلگرام روی آن نصب است) منتقل شود.
 
+## ⚡ نصب سریع
+
+```bash
+git clone https://github.com/letmefind/DNSST.git
+cd DNSST
+chmod +x setup_dnstt.sh
+sudo ./setup_dnstt.sh
+```
+
 ## معماری
 
 ```
