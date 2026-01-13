@@ -467,7 +467,7 @@ $WORK_DIR/dnstt-client
    Or with DoT:
    ./dnstt-client -dot dot.cloudflare.com:853 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
-   Or with UDP (for testing):
+   Or with DoU (DNS over UDP):
    ./dnstt-client -udp 8.8.8.8:53 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
    Note: $USER_PORT is the LOCAL port on user's system where dnstt-client listens.
