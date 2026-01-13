@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# تنظیمات RTL برای نمایش صحیح فارسی
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# کاراکترهای کنترل Unicode برای RTL
+RLE=$'\u202B'  # Right-to-Left Embedding
+PDF=$'\u202C'  # Pop Directional Formatting
+
 # رنگ‌ها برای خروجی
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -7,72 +15,77 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# تابع برای نمایش متن فارسی
+print_fa() {
+    echo -e "${RLE}${1}${PDF}"
+}
+
 # بررسی root بودن
 if [ "$EUID" -ne 0 ]; then 
-    echo -e "${RED}لطفا با دسترسی root اجرا کنید${NC}"
+    echo -e "${RED}${RLE}لطفا با دسترسی root اجرا کنید${PDF}${NC}"
     exit 1
 fi
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  نصب و راه‌اندازی DNSTT Tunnel${NC}"
+echo -e "${BLUE}${RLE}  نصب و راه‌اندازی DNSTT Tunnel${PDF}${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # دریافت اطلاعات از کاربر
-read -p "دامنه شما (مثال: tunnel.example.com): " DOMAIN
+read -p "${RLE}دامنه شما (مثال: tunnel.example.com): ${PDF}" DOMAIN
 if [ -z "$DOMAIN" ]; then
-    echo -e "${RED}دامنه نمی‌تواند خالی باشد${NC}"
+    echo -e "${RED}${RLE}دامنه نمی‌تواند خالی باشد${PDF}${NC}"
     exit 1
 fi
 
-read -p "DNS resolver برای DoH (مثال: https://doh.cloudflare.com/dns-query): " DOH_URL
+read -p "${RLE}DNS resolver برای DoH (مثال: https://doh.cloudflare.com/dns-query): ${PDF}" DOH_URL
 if [ -z "$DOH_URL" ]; then
     DOH_URL="https://doh.cloudflare.com/dns-query"
-    echo -e "${YELLOW}استفاده از DNS پیش‌فرض: $DOH_URL${NC}"
+    echo -e "${YELLOW}${RLE}استفاده از DNS پیش‌فرض: $DOH_URL${PDF}${NC}"
 fi
 
-read -p "IP سرور A (جایی که پراکسی تلگرام نصب است): " SERVER_A_IP
+read -p "${RLE}IP سرور A (جایی که پراکسی تلگرام نصب است): ${PDF}" SERVER_A_IP
 if [ -z "$SERVER_A_IP" ]; then
-    echo -e "${RED}IP سرور A نمی‌تواند خالی باشد${NC}"
+    echo -e "${RED}${RLE}IP سرور A نمی‌تواند خالی باشد${PDF}${NC}"
     exit 1
 fi
 
-read -p "پورت پراکسی تلگرام روی سرور A (مثال: 1080): " PROXY_PORT
+read -p "${RLE}پورت پراکسی تلگرام روی سرور A (مثال: 1080): ${PDF}" PROXY_PORT
 if [ -z "$PROXY_PORT" ]; then
     PROXY_PORT="1080"
-    echo -e "${YELLOW}استفاده از پورت پیش‌فرض: $PROXY_PORT${NC}"
+    echo -e "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $PROXY_PORT${PDF}${NC}"
 fi
 
-read -p "پورت محلی برای dnstt-server روی سرور B (مثال: 5300): " LOCAL_PORT
+read -p "${RLE}پورت محلی برای dnstt-server روی سرور B (مثال: 5300): ${PDF}" LOCAL_PORT
 if [ -z "$LOCAL_PORT" ]; then
     LOCAL_PORT="5300"
-    echo -e "${YELLOW}استفاده از پورت پیش‌فرض: $LOCAL_PORT${NC}"
+    echo -e "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $LOCAL_PORT${PDF}${NC}"
 fi
 
-read -p "پورت خروجی برای کاربران (مثال: 1080): " USER_PORT
+read -p "${RLE}پورت خروجی برای کاربران (مثال: 1080): ${PDF}" USER_PORT
 if [ -z "$USER_PORT" ]; then
     USER_PORT="1080"
-    echo -e "${YELLOW}استفاده از پورت پیش‌فرض: $USER_PORT${NC}"
+    echo -e "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $USER_PORT${PDF}${NC}"
 fi
 
 echo ""
-echo -e "${GREEN}خلاصه تنظیمات:${NC}"
-echo "  دامنه: $DOMAIN"
-echo "  DNS: $DOH_URL"
-echo "  IP سرور A: $SERVER_A_IP"
-echo "  پورت پراکسی: $PROXY_PORT"
-echo "  پورت محلی dnstt: $LOCAL_PORT"
-echo "  پورت کاربران: $USER_PORT"
+echo -e "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
+echo -e "${RLE}  دامنه: $DOMAIN${PDF}"
+echo -e "${RLE}  DNS: $DOH_URL${PDF}"
+echo -e "${RLE}  IP سرور A: $SERVER_A_IP${PDF}"
+echo -e "${RLE}  پورت پراکسی: $PROXY_PORT${PDF}"
+echo -e "${RLE}  پورت محلی dnstt: $LOCAL_PORT${PDF}"
+echo -e "${RLE}  پورت کاربران: $USER_PORT${PDF}"
 echo ""
-read -p "ادامه می‌دهید؟ (y/n): " CONFIRM
+read -p "${RLE}ادامه می‌دهید؟ (y/n): ${PDF}" CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-    echo "لغو شد"
+    echo -e "${RLE}لغو شد${PDF}"
     exit 1
 fi
 
 # نصب Go اگر نصب نباشد
 if ! command -v go &> /dev/null; then
-    echo -e "${YELLOW}در حال نصب Go...${NC}"
+    echo -e "${YELLOW}${RLE}در حال نصب Go...${PDF}${NC}"
     apt-get update
     apt-get install -y golang-go
 fi
@@ -88,13 +101,13 @@ LOCAL_DNSTT_CLIENT="$SCRIPT_DIR/dnstt/dnstt-client/dnstt-client"
 
 # بررسی وجود فایل‌های کامپایل شده محلی
 if [ -f "$LOCAL_DNSTT_SERVER" ] && [ -f "$LOCAL_DNSTT_CLIENT" ]; then
-    echo -e "${GREEN}استفاده از فایل‌های کامپایل شده موجود...${NC}"
+    echo -e "${GREEN}${RLE}استفاده از فایل‌های کامپایل شده موجود...${PDF}${NC}"
     cp "$LOCAL_DNSTT_SERVER" $WORK_DIR/dnstt-server
     cp "$LOCAL_DNSTT_CLIENT" $WORK_DIR/dnstt-client
     chmod +x $WORK_DIR/dnstt-server $WORK_DIR/dnstt-client
-    echo -e "${GREEN}فایل‌ها کپی شدند${NC}"
+    echo -e "${GREEN}${RLE}فایل‌ها کپی شدند${PDF}${NC}"
 else
-    echo -e "${YELLOW}فایل‌های کامپایل شده یافت نشد. در حال دانلود و کامپایل...${NC}"
+    echo -e "${YELLOW}${RLE}فایل‌های کامپایل شده یافت نشد. در حال دانلود و کامپایل...${PDF}${NC}"
     cd $WORK_DIR
     
     # دانلود و کامپایل dnstt
@@ -104,22 +117,22 @@ else
     
     cd dnstt/plugin
     
-    echo -e "${YELLOW}در حال کامپایل dnstt-server...${NC}"
+    echo -e "${YELLOW}${RLE}در حال کامپایل dnstt-server...${PDF}${NC}"
     go build -o $WORK_DIR/dnstt-server ./dnstt-server
     
-    echo -e "${YELLOW}در حال کامپایل dnstt-client...${NC}"
+    echo -e "${YELLOW}${RLE}در حال کامپایل dnstt-client...${PDF}${NC}"
     go build -o $WORK_DIR/dnstt-client ./dnstt-client
 fi
 
 # تولید کلیدها
-echo -e "${YELLOW}در حال تولید کلیدها...${NC}"
+echo -e "${YELLOW}${RLE}در حال تولید کلیدها...${PDF}${NC}"
 $WORK_DIR/dnstt-server -gen-key -privkey-file $WORK_DIR/server.key -pubkey-file $WORK_DIR/server.pub
 
 # خواندن کلید عمومی
 PUBKEY=$(cat $WORK_DIR/server.pub | grep "pubkey" | awk '{print $2}')
 
 # ایجاد فایل systemd service برای dnstt-server
-echo -e "${YELLOW}در حال ایجاد سرویس systemd...${NC}"
+echo -e "${YELLOW}${RLE}در حال ایجاد سرویس systemd...${PDF}${NC}"
 cat > /etc/systemd/system/dnstt-server.service << EOF
 [Unit]
 Description=DNSTT Server
@@ -143,7 +156,7 @@ systemctl enable dnstt-server
 systemctl restart dnstt-server
 
 # تنظیم iptables برای فایروال و ریدایرکت
-echo -e "${YELLOW}در حال تنظیم iptables...${NC}"
+echo -e "${YELLOW}${RLE}در حال تنظیم iptables...${PDF}${NC}"
 
 # نصب iptables-persistent اگر نصب نباشد
 if ! command -v iptables-save &> /dev/null; then
@@ -257,17 +270,17 @@ EOF
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  نصب با موفقیت انجام شد!${NC}"
+echo -e "${GREEN}${RLE}  نصب با موفقیت انجام شد!${PDF}${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo -e "${YELLOW}اطلاعات کامل در فایل زیر ذخیره شده:${NC}"
+echo -e "${YELLOW}${RLE}اطلاعات کامل در فایل زیر ذخیره شده:${PDF}${NC}"
 echo "$WORK_DIR/info.txt"
 echo ""
-echo -e "${YELLOW}کلید عمومی:${NC}"
+echo -e "${YELLOW}${RLE}کلید عمومی:${PDF}${NC}"
 echo "$PUBKEY"
 echo ""
-echo -e "${YELLOW}وضعیت سرویس:${NC}"
+echo -e "${YELLOW}${RLE}وضعیت سرویس:${PDF}${NC}"
 systemctl status dnstt-server --no-pager -l
 echo ""
-echo -e "${GREEN}برای مشاهده لاگ‌ها: journalctl -u dnstt-server -f${NC}"
+echo -e "${GREEN}${RLE}برای مشاهده لاگ‌ها: journalctl -u dnstt-server -f${PDF}${NC}"
 
