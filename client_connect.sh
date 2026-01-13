@@ -152,6 +152,10 @@ printf "%b\n" "${YELLOW}${RLE}برای توقف، Ctrl+C را فشار دهید$
 echo ""
 
 # اجرای client از دایرکتوری کار (همان پوشه server)
+# طبق مستندات dnstt:
+# - DoH: ./dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
+# - DoT: ./dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
+# - UDP: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
 cd $WORK_DIR
 if [ "$DNS_METHOD" = "dot" ]; then
     ./dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"

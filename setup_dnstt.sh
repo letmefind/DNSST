@@ -51,6 +51,7 @@ fi
 # سرور نیازی به دانستن نوع DNS resolver ندارد
 # این فقط برای کاربران است که از DoH یا DoT استفاده می‌کنند
 # سرور فقط UDP DNS queries را دریافت می‌کند
+# طبق مستندات: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
 
 printf "%b" "${RLE}IP سرور A (سرور دریافت کننده ترافیک از B - جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است): ${PDF}"
 read SERVER_A_IP
@@ -137,6 +138,7 @@ else
 fi
 
 # تولید کلیدها
+# طبق مستندات: dnstt-server -gen-key -privkey-file KEY -pubkey-file PUB
 printf "%b\n" "${YELLOW}${RLE}در حال تولید کلیدها...${PDF}${NC}"
 $WORK_DIR/dnstt-server -gen-key -privkey-file $WORK_DIR/server.key -pubkey-file $WORK_DIR/server.pub
 
@@ -144,6 +146,8 @@ $WORK_DIR/dnstt-server -gen-key -privkey-file $WORK_DIR/server.key -pubkey-file 
 PUBKEY=$(cat $WORK_DIR/server.pub | grep "pubkey" | awk '{print $2}')
 
 # ایجاد فایل systemd service برای dnstt-server
+# طبق مستندات: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
+# می‌توانید -mtu را هم اضافه کنید: -mtu 1232 (پیش‌فرض) یا -mtu 512 (برای سازگاری بیشتر)
 printf "%b\n" "${YELLOW}${RLE}در حال ایجاد سرویس systemd...${PDF}${NC}"
 cat > /etc/systemd/system/dnstt-server.service << EOF
 [Unit]
@@ -217,6 +221,8 @@ cd dnstt/plugin
 go build -o dnstt-client ./dnstt-client
 
 # اجرای client
+# طبق مستندات: dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
+# یا: dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
 echo "در حال اتصال..."
 echo "لطفا نوع DNS resolver را انتخاب کنید:"
 echo "1. DoH (DNS over HTTPS) - مثال: https://doh.cloudflare.com/dns-query"
@@ -225,6 +231,9 @@ read -p "انتخاب (1 یا 2): " DNS_TYPE
 
 if [ "$DNS_TYPE" = "2" ]; then
     read -p "آدرس DoT resolver (مثال: dot.cloudflare.com:853): " DOT_URL
+    if [ -z "$DOT_URL" ]; then
+        DOT_URL="dot.cloudflare.com:853"
+    fi
     ./dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
     read -p "آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): " DOH_URL
@@ -275,6 +284,9 @@ $WORK_DIR/dnstt-client
 
    یا با DoT:
    ./dnstt-client -dot dot.cloudflare.com:853 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
+
+   یا با UDP (برای تست):
+   ./dnstt-client -udp 8.8.8.8:53 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
 3. در تنظیمات تلگرام، از SOCKS5 proxy استفاده کنید:
    Host: 127.0.0.1
