@@ -1,162 +1,133 @@
 #!/bin/bash
 
-# تنظیمات RTL برای نمایش صحیح فارسی
-export LC_ALL=C.UTF-8
-export LANG=C.UTF-8
-
-# کاراکترهای کنترل Unicode برای RTL
-RLE=$'\u202B'  # Right-to-Left Embedding
-PDF=$'\u202C'  # Pop Directional Formatting
-LRE=$'\u202A'  # Left-to-Right Embedding
-
-# رنگ‌ها برای خروجی
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# تابع برای نمایش متن فارسی با RTL
-print_fa() {
-    printf "%b" "${RLE}${1}${PDF}"
-}
-
-# تابع برای read با RTL
-read_fa() {
-    local prompt="$1"
-    local var_name="$2"
-    printf "%b" "${RLE}${prompt}${PDF}"
-    read "$var_name"
-}
-
-# بررسی root بودن
+# Check if running as root
 if [ "$EUID" -ne 0 ]; then 
-    printf "%b\n" "${RED}${RLE}لطفا با دسترسی root اجرا کنید${PDF}${NC}"
+    echo -e "${RED}Please run as root${NC}"
     exit 1
 fi
 
-printf "%b\n" "${BLUE}========================================${NC}"
-printf "%b\n" "${BLUE}${RLE}  نصب و راه‌اندازی DNSTT Tunnel${PDF}${NC}"
-printf "%b\n" "${BLUE}========================================${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}  DNSTT Tunnel Setup${NC}"
+echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# دریافت اطلاعات از کاربر
-printf "%b" "${RLE}دامنه شما (مثال: tunnel.example.com): ${PDF}"
-read DOMAIN
+# Get user input
+read -p "Your domain (e.g., tunnel.example.com): " DOMAIN
 if [ -z "$DOMAIN" ]; then
-    printf "%b\n" "${RED}${RLE}دامنه نمی‌تواند خالی باشد${PDF}${NC}"
+    echo -e "${RED}Domain cannot be empty${NC}"
     exit 1
 fi
 
-# سرور نیازی به دانستن نوع DNS resolver ندارد
-# این فقط برای کاربران است که از DoH یا DoT استفاده می‌کنند
-# سرور فقط UDP DNS queries را دریافت می‌کند
-# طبق مستندات: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
+# Server doesn't need to know DNS resolver type
+# This is only for users who use DoH or DoT
+# Server only receives UDP DNS queries
+# According to docs: dnstt-server -udp :PORT -privkey-file KEY DOMAIN TARGET:PORT
 
-printf "%b" "${RLE}IP سرور A (سرور دریافت کننده ترافیک از B - جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است): ${PDF}"
-read SERVER_A_IP
+read -p "Server A IP (destination server - where proxy/application is installed): " SERVER_A_IP
 if [ -z "$SERVER_A_IP" ]; then
-    printf "%b\n" "${RED}${RLE}IP سرور A نمی‌تواند خالی باشد${PDF}${NC}"
+    echo -e "${RED}Server A IP cannot be empty${NC}"
     exit 1
 fi
 
-printf "%b" "${RLE}پورت پراکسی/اپلیکیشن روی سرور A (مثال: 1080): ${PDF}"
-read PROXY_PORT
+read -p "Proxy/Application port on Server A (default: 1080): " PROXY_PORT
 if [ -z "$PROXY_PORT" ]; then
     PROXY_PORT="1080"
-    printf "%b\n" "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $PROXY_PORT${PDF}${NC}"
+    echo -e "${YELLOW}Using default port: $PROXY_PORT${NC}"
 fi
 
-printf "%b" "${RLE}پورت محلی برای dnstt-server روی سرور B (سرور دریافت کننده ترافیک کاربران - مثال: 5300): ${PDF}"
-read LOCAL_PORT
+read -p "Local port for dnstt-server on Server B (receiving user traffic - default: 5300): " LOCAL_PORT
 if [ -z "$LOCAL_PORT" ]; then
     LOCAL_PORT="5300"
-    printf "%b\n" "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $LOCAL_PORT${PDF}${NC}"
+    echo -e "${YELLOW}Using default port: $LOCAL_PORT${NC}"
 fi
 
-printf "%b" "${RLE}پورت خروجی برای کاربران (مثال: 1080): ${PDF}"
-read USER_PORT
+read -p "Output port for users (default: 1080): " USER_PORT
 if [ -z "$USER_PORT" ]; then
     USER_PORT="1080"
-    printf "%b\n" "${YELLOW}${RLE}استفاده از پورت پیش‌فرض: $USER_PORT${PDF}${NC}"
+    echo -e "${YELLOW}Using default port: $USER_PORT${NC}"
 fi
 
-printf "%b" "${RLE}MTU (Maximum Transmission Unit) - پیش‌فرض: 1232، برای سازگاری بیشتر: 512 (Enter برای پیش‌فرض): ${PDF}"
-read MTU_VALUE
+read -p "MTU (Maximum Transmission Unit) - default: 1232, for better compatibility: 512 (Enter for default): " MTU_VALUE
 if [ -z "$MTU_VALUE" ]; then
     MTU_VALUE="1232"
-    printf "%b\n" "${YELLOW}${RLE}استفاده از MTU پیش‌فرض: $MTU_VALUE${PDF}${NC}"
+    echo -e "${YELLOW}Using default MTU: $MTU_VALUE${NC}"
 fi
 
 echo ""
-printf "%b\n" "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
-printf "%b\n" "${RLE}  دامنه: $DOMAIN${PDF}"
-printf "%b\n" "${RLE}  IP سرور A (مقصد نهایی): $SERVER_A_IP${PDF}"
-printf "%b\n" "${RLE}  پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT${PDF}"
-printf "%b\n" "${RLE}  پورت محلی dnstt روی سرور B: $LOCAL_PORT${PDF}"
-printf "%b\n" "${RLE}  پورت خروجی برای کاربران: $USER_PORT${PDF}"
-printf "%b\n" "${RLE}  MTU: $MTU_VALUE${PDF}"
+echo -e "${GREEN}Configuration Summary:${NC}"
+echo "  Domain: $DOMAIN"
+echo "  Server A IP (destination): $SERVER_A_IP"
+echo "  Proxy/Application port on Server A: $PROXY_PORT"
+echo "  Local dnstt port on Server B: $LOCAL_PORT"
+echo "  Output port for users: $USER_PORT"
+echo "  MTU: $MTU_VALUE"
 echo ""
-printf "%b" "${RLE}ادامه می‌دهید؟ (y/n): ${PDF}"
-read CONFIRM
+read -p "Continue? (y/n): " CONFIRM
 if [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ]; then
-    printf "%b\n" "${RLE}لغو شد${PDF}"
+    echo "Cancelled"
     exit 1
 fi
 
-# نصب Go اگر نصب نباشد
+# Install Go if not installed
 if ! command -v go &> /dev/null; then
-    printf "%b\n" "${YELLOW}${RLE}در حال نصب Go...${PDF}${NC}"
+    echo -e "${YELLOW}Installing Go...${NC}"
     apt-get update
     apt-get install -y golang-go
 fi
 
-# ایجاد دایرکتوری کار
+# Create work directory
 WORK_DIR="/opt/dnstt"
 mkdir -p $WORK_DIR
 
-# بررسی مسیر اسکریپت برای فایل‌های کامپایل شده
+# Check script directory for pre-compiled binaries
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_DNSTT_SERVER="$SCRIPT_DIR/dnstt/dnstt-server/dnstt-server"
 LOCAL_DNSTT_CLIENT="$SCRIPT_DIR/dnstt/dnstt-client/dnstt-client"
 
-# بررسی وجود فایل‌های کامپایل شده محلی
+# Check for pre-compiled binaries
 if [ -f "$LOCAL_DNSTT_SERVER" ] && [ -f "$LOCAL_DNSTT_CLIENT" ]; then
-    printf "%b\n" "${GREEN}${RLE}استفاده از فایل‌های کامپایل شده موجود...${PDF}${NC}"
+    echo -e "${GREEN}Using existing pre-compiled binaries...${NC}"
     cp "$LOCAL_DNSTT_SERVER" $WORK_DIR/dnstt-server
     cp "$LOCAL_DNSTT_CLIENT" $WORK_DIR/dnstt-client
     chmod +x $WORK_DIR/dnstt-server $WORK_DIR/dnstt-client
-    printf "%b\n" "${GREEN}${RLE}فایل‌ها کپی شدند${PDF}${NC}"
+    echo -e "${GREEN}Files copied${NC}"
 else
-    printf "%b\n" "${YELLOW}${RLE}فایل‌های کامپایل شده یافت نشد. در حال دانلود و کامپایل...${PDF}${NC}"
+    echo -e "${YELLOW}Pre-compiled binaries not found. Downloading and compiling...${NC}"
     cd $WORK_DIR
     
-    # دانلود و کامپایل dnstt
+    # Download and compile dnstt
     if [ ! -d "dnstt" ]; then
         git clone https://github.com/Mygod/dnstt.git
     fi
     
     cd dnstt/plugin
     
-    printf "%b\n" "${YELLOW}${RLE}در حال کامپایل dnstt-server...${PDF}${NC}"
+    echo -e "${YELLOW}Compiling dnstt-server...${NC}"
     go build -o $WORK_DIR/dnstt-server ./dnstt-server
     
-    printf "%b\n" "${YELLOW}${RLE}در حال کامپایل dnstt-client...${PDF}${NC}"
+    echo -e "${YELLOW}Compiling dnstt-client...${NC}"
     go build -o $WORK_DIR/dnstt-client ./dnstt-client
 fi
 
-# تولید کلیدها
-# طبق مستندات: dnstt-server -gen-key -privkey-file KEY -pubkey-file PUB
-printf "%b\n" "${YELLOW}${RLE}در حال تولید کلیدها...${PDF}${NC}"
+# Generate keys
+# According to docs: dnstt-server -gen-key -privkey-file KEY -pubkey-file PUB
+echo -e "${YELLOW}Generating keys...${NC}"
 $WORK_DIR/dnstt-server -gen-key -privkey-file $WORK_DIR/server.key -pubkey-file $WORK_DIR/server.pub
 
-# خواندن کلید عمومی
+# Read public key
 PUBKEY=$(cat $WORK_DIR/server.pub | grep "pubkey" | awk '{print $2}')
 
-# ایجاد فایل systemd service برای dnstt-server
-# طبق مستندات: dnstt-server -udp :PORT -mtu SIZE -privkey-file KEY DOMAIN TARGET:PORT
-# -mtu 1232 (پیش‌فرض) برای عملکرد بهتر، -mtu 512 برای سازگاری بیشتر
-printf "%b\n" "${YELLOW}${RLE}در حال ایجاد سرویس systemd...${PDF}${NC}"
+# Create systemd service file for dnstt-server
+# According to docs: dnstt-server -udp :PORT -mtu SIZE -privkey-file KEY DOMAIN TARGET:PORT
+# -mtu 1232 (default) for better performance, -mtu 512 for better compatibility
+echo -e "${YELLOW}Creating systemd service...${NC}"
 cat > /etc/systemd/system/dnstt-server.service << EOF
 [Unit]
 Description=DNSTT Server
@@ -174,49 +145,49 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
-# فعال‌سازی و راه‌اندازی سرویس
+# Enable and start service
 systemctl daemon-reload
 systemctl enable dnstt-server
 systemctl restart dnstt-server
 
-# تنظیم iptables برای فایروال و ریدایرکت
-printf "%b\n" "${YELLOW}${RLE}در حال تنظیم iptables...${PDF}${NC}"
+# Configure iptables for firewall and redirect
+echo -e "${YELLOW}Configuring iptables...${NC}"
 
-# نصب iptables-persistent اگر نصب نباشد
+# Install iptables-persistent if not installed
 if ! command -v iptables-save &> /dev/null; then
     apt-get install -y iptables-persistent
 fi
 
-# اجازه UDP برای پورت dnstt-server
+# Allow UDP for dnstt-server port
 iptables -I INPUT -p udp --dport $LOCAL_PORT -j ACCEPT
 
-# اگر نیاز به ریدایرکت پورت دیگری به پورت dnstt دارید، این خط را فعال کنید:
+# If you need to redirect another port to dnstt port, uncomment this line:
 # iptables -t nat -A PREROUTING -p udp --dport $USER_PORT -j REDIRECT --to-port $LOCAL_PORT
 
-# ذخیره قوانین iptables
+# Save iptables rules
 mkdir -p /etc/iptables
 iptables-save > /etc/iptables/rules.v4
 
-# برای سیستم‌های با netfilter-persistent
+# For systems with netfilter-persistent
 if command -v netfilter-persistent &> /dev/null; then
     netfilter-persistent save
 fi
 
-# ایجاد اسکریپت client برای کاربران
+# Create client script for users
 cat > $WORK_DIR/client_setup.sh << 'CLIENT_EOF'
 #!/bin/bash
 
-# دریافت اطلاعات از کاربر
-read -p "دامنه: " DOMAIN
-read -p "مسیر فایل کلید عمومی (server.pub): " PUBKEY_FILE
-read -p "پورت محلی برای اتصال (مثال: 1080): " LOCAL_PORT
+# Get user input
+read -p "Domain: " DOMAIN
+read -p "Public key file path (server.pub): " PUBKEY_FILE
+read -p "Local port for connection (default: 1080): " LOCAL_PORT
 
 if [ -z "$DOMAIN" ] || [ -z "$PUBKEY_FILE" ] || [ -z "$LOCAL_PORT" ]; then
-    echo "همه فیلدها الزامی هستند"
+    echo "All fields are required"
     exit 1
 fi
 
-# دانلود و کامپایل dnstt-client
+# Download and compile dnstt-client
 WORK_DIR="$HOME/dnstt-client"
 mkdir -p $WORK_DIR
 cd $WORK_DIR
@@ -228,23 +199,23 @@ fi
 cd dnstt/plugin
 go build -o dnstt-client ./dnstt-client
 
-# اجرای client
-# طبق مستندات: dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
-# یا: dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-echo "در حال اتصال..."
-echo "لطفا نوع DNS resolver را انتخاب کنید:"
-echo "1. DoH (DNS over HTTPS) - مثال: https://doh.cloudflare.com/dns-query"
-echo "2. DoT (DNS over TLS) - مثال: dot.cloudflare.com:853"
-read -p "انتخاب (1 یا 2): " DNS_TYPE
+# Run client
+# According to docs: dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
+# or: dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
+echo "Connecting..."
+echo "Please select DNS resolver type:"
+echo "1. DoH (DNS over HTTPS) - example: https://doh.cloudflare.com/dns-query"
+echo "2. DoT (DNS over TLS) - example: dot.cloudflare.com:853"
+read -p "Choice (1 or 2): " DNS_TYPE
 
 if [ "$DNS_TYPE" = "2" ]; then
-    read -p "آدرس DoT resolver (مثال: dot.cloudflare.com:853): " DOT_URL
+    read -p "DoT resolver address (example: dot.cloudflare.com:853): " DOT_URL
     if [ -z "$DOT_URL" ]; then
         DOT_URL="dot.cloudflare.com:853"
     fi
     ./dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
 else
-    read -p "آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): " DOH_URL
+    read -p "DoH resolver address (example: https://doh.cloudflare.com/dns-query): " DOH_URL
     if [ -z "$DOH_URL" ]; then
         DOH_URL="https://doh.cloudflare.com/dns-query"
     fi
@@ -254,66 +225,66 @@ CLIENT_EOF
 
 chmod +x $WORK_DIR/client_setup.sh
 
-# ایجاد فایل اطلاعات
+# Create info file
 cat > $WORK_DIR/info.txt << EOF
 ========================================
-  اطلاعات اتصال DNSTT
+  DNSTT Connection Information
 ========================================
 
-دامنه: $DOMAIN
-IP سرور A (مقصد نهایی): $SERVER_A_IP
-پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT
+Domain: $DOMAIN
+Server A IP (destination): $SERVER_A_IP
+Proxy/Application port on Server A: $PROXY_PORT
 
-توضیح:
-- سرور B: سرور دریافت کننده ترافیک کاربران (جایی که این اسکریپت اجرا می‌شود)
-- سرور A: سرور دریافت کننده ترافیک از B (جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است)
+Explanation:
+- Server B: Server receiving user traffic (where this script is executed)
+- Server A: Server receiving traffic from B (where Telegram proxy or other apps are installed)
 
-کلید عمومی (PUBKEY):
+Public Key (PUBKEY):
 $PUBKEY
 
-فایل کلید عمومی: $WORK_DIR/server.pub
+Public key file: $WORK_DIR/server.pub
 
-مسیر باینری‌ها (server و client در همان پوشه):
+Binary paths (server and client in the same folder):
 $WORK_DIR/dnstt-server
 $WORK_DIR/dnstt-client
 
 ========================================
-  دستورات برای کاربران:
+  Commands for Users:
 ========================================
 
-1. فایل server.pub را از سرور B دانلود کنید:
+1. Download server.pub file from Server B:
    scp root@SERVER_B_IP:$WORK_DIR/server.pub ./
 
-2. روی سیستم کاربر، dnstt-client را نصب و اجرا کنید:
+2. On user system, install and run dnstt-client:
    $WORK_DIR/client_setup.sh
 
-   یا به صورت دستی (با DoH):
+   Or manually (with DoH):
    ./dnstt-client -doh https://doh.cloudflare.com/dns-query -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
-   یا با DoT:
+   Or with DoT:
    ./dnstt-client -dot dot.cloudflare.com:853 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
-   یا با UDP (برای تست):
+   Or with UDP (for testing):
    ./dnstt-client -udp 8.8.8.8:53 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
-3. در تنظیمات تلگرام، از SOCKS5 proxy استفاده کنید:
+3. In Telegram settings, use SOCKS5 proxy:
    Host: 127.0.0.1
    Port: $USER_PORT
 
 ========================================
-  دستورات مدیریت:
+  Management Commands:
 ========================================
 
-مشاهده وضعیت سرویس:
+View service status:
 systemctl status dnstt-server
 
-مشاهده لاگ‌ها:
+View logs:
 journalctl -u dnstt-server -f
 
-راه‌اندازی مجدد:
+Restart:
 systemctl restart dnstt-server
 
-توقف:
+Stop:
 systemctl stop dnstt-server
 
 ========================================
@@ -321,17 +292,16 @@ EOF
 
 echo ""
 echo -e "${GREEN}========================================${NC}"
-printf "%b\n" "${GREEN}${RLE}  نصب با موفقیت انجام شد!${PDF}${NC}"
+echo -e "${GREEN}  Installation completed successfully!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-printf "%b\n" "${YELLOW}${RLE}اطلاعات کامل در فایل زیر ذخیره شده:${PDF}${NC}"
+echo -e "${YELLOW}Complete information saved to:${NC}"
 echo "$WORK_DIR/info.txt"
 echo ""
-printf "%b\n" "${YELLOW}${RLE}کلید عمومی:${PDF}${NC}"
+echo -e "${YELLOW}Public key:${NC}"
 echo "$PUBKEY"
 echo ""
-printf "%b\n" "${YELLOW}${RLE}وضعیت سرویس:${PDF}${NC}"
+echo -e "${YELLOW}Service status:${NC}"
 systemctl status dnstt-server --no-pager -l
 echo ""
-printf "%b\n" "${GREEN}${RLE}برای مشاهده لاگ‌ها: journalctl -u dnstt-server -f${PDF}${NC}"
-
+echo -e "${GREEN}To view logs: journalctl -u dnstt-server -f${NC}"

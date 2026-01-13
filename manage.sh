@@ -1,14 +1,6 @@
 #!/bin/bash
 
-# تنظیمات RTL برای نمایش صحیح فارسی
-export LC_ALL=C.UTF-8
-export LANG=C.UTF-8
-
-# کاراکترهای کنترل Unicode برای RTL
-RLE=$'\u202B'  # Right-to-Left Embedding
-PDF=$'\u202C'  # Pop Directional Formatting
-
-# اسکریپت مدیریت DNSTT Server
+# DNSTT Server Management Script
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -20,60 +12,60 @@ WORK_DIR="/opt/dnstt"
 SERVICE_NAME="dnstt-server"
 
 if [ "$EUID" -ne 0 ]; then 
-    printf "%b\n" "${RED}${RLE}لطفا با دسترسی root اجرا کنید${PDF}${NC}"
+    echo -e "${RED}Please run as root${NC}"
     exit 1
 fi
 
 show_menu() {
     echo -e "${BLUE}========================================${NC}"
-    printf "%b\n" "${BLUE}${RLE}  مدیریت DNSTT Server${PDF}${NC}"
+    echo -e "${BLUE}  DNSTT Server Management${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo ""
-    printf "%b\n" "${RLE}1. مشاهده وضعیت سرویس${PDF}"
-    printf "%b\n" "${RLE}2. مشاهده لاگ‌ها (زنده)${PDF}"
-    printf "%b\n" "${RLE}3. مشاهده لاگ‌ها (آخرین 50 خط)${PDF}"
-    printf "%b\n" "${RLE}4. راه‌اندازی مجدد سرویس${PDF}"
-    printf "%b\n" "${RLE}5. توقف سرویس${PDF}"
-    printf "%b\n" "${RLE}6. شروع سرویس${PDF}"
-    printf "%b\n" "${RLE}7. نمایش اطلاعات اتصال${PDF}"
-    printf "%b\n" "${RLE}8. نمایش کلید عمومی${PDF}"
-    printf "%b\n" "${RLE}9. بررسی پورت‌ها${PDF}"
-    printf "%b\n" "${RLE}10. بررسی iptables${PDF}"
-    printf "%b\n" "${RLE}0. خروج${PDF}"
+    echo "1. View service status"
+    echo "2. View logs (live)"
+    echo "3. View logs (last 50 lines)"
+    echo "4. Restart service"
+    echo "5. Stop service"
+    echo "6. Start service"
+    echo "7. Show connection info"
+    echo "8. Show public key"
+    echo "9. Check ports"
+    echo "10. Check iptables"
+    echo "0. Exit"
     echo ""
 }
 
 show_status() {
-    printf "%b\n" "${YELLOW}${RLE}وضعیت سرویس:${PDF}${NC}"
+    echo -e "${YELLOW}Service status:${NC}"
     systemctl status $SERVICE_NAME --no-pager -l
 }
 
 show_logs_live() {
-    printf "%b\n" "${YELLOW}${RLE}لاگ‌های زنده (برای خروج Ctrl+C):${PDF}${NC}"
+    echo -e "${YELLOW}Live logs (Press Ctrl+C to exit):${NC}"
     journalctl -u $SERVICE_NAME -f
 }
 
 show_logs_recent() {
-    printf "%b\n" "${YELLOW}${RLE}آخرین 50 خط لاگ:${PDF}${NC}"
+    echo -e "${YELLOW}Last 50 lines of logs:${NC}"
     journalctl -u $SERVICE_NAME -n 50 --no-pager
 }
 
 restart_service() {
-    printf "%b\n" "${YELLOW}${RLE}در حال راه‌اندازی مجدد...${PDF}${NC}"
+    echo -e "${YELLOW}Restarting service...${NC}"
     systemctl restart $SERVICE_NAME
     sleep 2
     show_status
 }
 
 stop_service() {
-    printf "%b\n" "${YELLOW}${RLE}در حال توقف سرویس...${PDF}${NC}"
+    echo -e "${YELLOW}Stopping service...${NC}"
     systemctl stop $SERVICE_NAME
     sleep 1
     show_status
 }
 
 start_service() {
-    printf "%b\n" "${YELLOW}${RLE}در حال شروع سرویس...${PDF}${NC}"
+    echo -e "${YELLOW}Starting service...${NC}"
     systemctl start $SERVICE_NAME
     sleep 2
     show_status
@@ -83,36 +75,35 @@ show_info() {
     if [ -f "$WORK_DIR/info.txt" ]; then
         cat $WORK_DIR/info.txt
     else
-        printf "%b\n" "${RED}${RLE}فایل اطلاعات یافت نشد${PDF}${NC}"
+        echo -e "${RED}Info file not found${NC}"
     fi
 }
 
 show_pubkey() {
     if [ -f "$WORK_DIR/server.pub" ]; then
-        printf "%b\n" "${YELLOW}${RLE}کلید عمومی:${PDF}${NC}"
+        echo -e "${YELLOW}Public key:${NC}"
         cat $WORK_DIR/server.pub
     else
-        printf "%b\n" "${RED}${RLE}فایل کلید عمومی یافت نشد${PDF}${NC}"
+        echo -e "${RED}Public key file not found${NC}"
     fi
 }
 
 check_ports() {
-    printf "%b\n" "${YELLOW}${RLE}بررسی پورت‌های باز:${PDF}${NC}"
+    echo -e "${YELLOW}Checking open ports:${NC}"
     netstat -tulpn | grep -E ":(5300|1080)" || ss -tulpn | grep -E ":(5300|1080)"
 }
 
 check_iptables() {
-    printf "%b\n" "${YELLOW}${RLE}قوانین iptables:${PDF}${NC}"
+    echo -e "${YELLOW}iptables rules:${NC}"
     iptables -t nat -L -n -v
     echo ""
-    printf "%b\n" "${YELLOW}${RLE}قوانین INPUT:${PDF}${NC}"
+    echo -e "${YELLOW}INPUT rules:${NC}"
     iptables -L INPUT -n -v
 }
 
 while true; do
     show_menu
-    printf "%b" "${RLE}گزینه را انتخاب کنید: ${PDF}"
-read choice
+    read -p "Select option: " choice
     echo ""
     
     case $choice in
@@ -147,16 +138,15 @@ read choice
             check_iptables
             ;;
         0)
-            printf "%b\n" "${RLE}خروج...${PDF}"
+            echo "Exiting..."
             exit 0
             ;;
         *)
-            printf "%b\n" "${RED}${RLE}گزینه نامعتبر${PDF}${NC}"
+            echo -e "${RED}Invalid option${NC}"
             ;;
     esac
     
     echo ""
-    read -p "${RLE}برای ادامه Enter را فشار دهید...${PDF}"
+    read -p "Press Enter to continue..."
     clear
 done
-
