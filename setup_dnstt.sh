@@ -332,6 +332,10 @@ $WORK_DIR/dnstt-client
    Or with UDP (for testing):
    ./dnstt-client -udp 8.8.8.8:53 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
+   Note: $USER_PORT is the LOCAL port on user's system where dnstt-client listens.
+         This port is NOT used on the server. Users connect to 127.0.0.1:$USER_PORT
+         from their Telegram or other applications.
+
 3. In Telegram settings, use SOCKS5 proxy:
    Host: 127.0.0.1
    Port: $USER_PORT
