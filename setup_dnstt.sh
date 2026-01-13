@@ -48,34 +48,9 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
-printf "%b\n" "${RLE}نوع DNS resolver:${PDF}${NC}"
-printf "%b\n" "${RLE}1. DoH (DNS over HTTPS)${PDF}"
-printf "%b\n" "${RLE}2. DoT (DNS over TLS)${PDF}"
-printf "%b" "${RLE}انتخاب کنید (1 یا 2، پیش‌فرض: 1): ${PDF}"
-read DNS_TYPE
-if [ -z "$DNS_TYPE" ]; then
-    DNS_TYPE="1"
-fi
-
-if [ "$DNS_TYPE" = "2" ]; then
-    printf "%b" "${RLE}آدرس DoT resolver (مثال: dot.cloudflare.com:853): ${PDF}"
-    read DOT_URL
-    if [ -z "$DOT_URL" ]; then
-        DOT_URL="dot.cloudflare.com:853"
-        printf "%b\n" "${YELLOW}${RLE}استفاده از DoT پیش‌فرض: $DOT_URL${PDF}${NC}"
-    fi
-    DNS_METHOD="dot"
-    DNS_URL="$DOT_URL"
-else
-    printf "%b" "${RLE}آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): ${PDF}"
-    read DOH_URL
-    if [ -z "$DOH_URL" ]; then
-        DOH_URL="https://doh.cloudflare.com/dns-query"
-        printf "%b\n" "${YELLOW}${RLE}استفاده از DoH پیش‌فرض: $DOH_URL${PDF}${NC}"
-    fi
-    DNS_METHOD="doh"
-    DNS_URL="$DOH_URL"
-fi
+# سرور نیازی به دانستن نوع DNS resolver ندارد
+# این فقط برای کاربران است که از DoH یا DoT استفاده می‌کنند
+# سرور فقط UDP DNS queries را دریافت می‌کند
 
 printf "%b" "${RLE}IP سرور A (سرور دریافت کننده ترافیک از B - جایی که پراکسی تلگرام یا سایر اپ‌ها نصب است): ${PDF}"
 read SERVER_A_IP
@@ -108,11 +83,6 @@ fi
 echo ""
 printf "%b\n" "${GREEN}${RLE}خلاصه تنظیمات:${PDF}${NC}"
 printf "%b\n" "${RLE}  دامنه: $DOMAIN${PDF}"
-if [ "$DNS_METHOD" = "dot" ]; then
-    printf "%b\n" "${RLE}  DNS: DoT - $DNS_URL${PDF}"
-else
-    printf "%b\n" "${RLE}  DNS: DoH - $DNS_URL${PDF}"
-fi
 printf "%b\n" "${RLE}  IP سرور A (مقصد نهایی): $SERVER_A_IP${PDF}"
 printf "%b\n" "${RLE}  پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT${PDF}"
 printf "%b\n" "${RLE}  پورت محلی dnstt روی سرور B: $LOCAL_PORT${PDF}"
@@ -226,11 +196,10 @@ cat > $WORK_DIR/client_setup.sh << 'CLIENT_EOF'
 
 # دریافت اطلاعات از کاربر
 read -p "دامنه: " DOMAIN
-read -p "DNS resolver (DoH): " DOH_URL
 read -p "مسیر فایل کلید عمومی (server.pub): " PUBKEY_FILE
 read -p "پورت محلی برای اتصال (مثال: 1080): " LOCAL_PORT
 
-if [ -z "$DOMAIN" ] || [ -z "$DOH_URL" ] || [ -z "$PUBKEY_FILE" ] || [ -z "$LOCAL_PORT" ]; then
+if [ -z "$DOMAIN" ] || [ -z "$PUBKEY_FILE" ] || [ -z "$LOCAL_PORT" ]; then
     echo "همه فیلدها الزامی هستند"
     exit 1
 fi
@@ -249,7 +218,21 @@ go build -o dnstt-client ./dnstt-client
 
 # اجرای client
 echo "در حال اتصال..."
-./dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+echo "لطفا نوع DNS resolver را انتخاب کنید:"
+echo "1. DoH (DNS over HTTPS) - مثال: https://doh.cloudflare.com/dns-query"
+echo "2. DoT (DNS over TLS) - مثال: dot.cloudflare.com:853"
+read -p "انتخاب (1 یا 2): " DNS_TYPE
+
+if [ "$DNS_TYPE" = "2" ]; then
+    read -p "آدرس DoT resolver (مثال: dot.cloudflare.com:853): " DOT_URL
+    ./dnstt-client -dot "$DOT_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+else
+    read -p "آدرس DoH resolver (مثال: https://doh.cloudflare.com/dns-query): " DOH_URL
+    if [ -z "$DOH_URL" ]; then
+        DOH_URL="https://doh.cloudflare.com/dns-query"
+    fi
+    ./dnstt-client -doh "$DOH_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+fi
 CLIENT_EOF
 
 chmod +x $WORK_DIR/client_setup.sh
@@ -261,13 +244,6 @@ cat > $WORK_DIR/info.txt << EOF
 ========================================
 
 دامنه: $DOMAIN
-EOF
-if [ "$DNS_METHOD" = "dot" ]; then
-    echo "DNS: DoT - $DNS_URL" >> $WORK_DIR/info.txt
-else
-    echo "DNS: DoH - $DNS_URL" >> $WORK_DIR/info.txt
-fi
-cat >> $WORK_DIR/info.txt << EOF
 IP سرور A (مقصد نهایی): $SERVER_A_IP
 پورت پراکسی/اپلیکیشن روی سرور A: $PROXY_PORT
 
@@ -294,14 +270,11 @@ $WORK_DIR/dnstt-client
 2. روی سیستم کاربر، dnstt-client را نصب و اجرا کنید:
    $WORK_DIR/client_setup.sh
 
-   یا به صورت دستی:
-EOF
-if [ "$DNS_METHOD" = "dot" ]; then
-    echo "   ./dnstt-client -dot \"$DNS_URL\" -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT" >> $WORK_DIR/info.txt
-else
-    echo "   ./dnstt-client -doh \"$DNS_URL\" -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT" >> $WORK_DIR/info.txt
-fi
-cat >> $WORK_DIR/info.txt << EOF
+   یا به صورت دستی (با DoH):
+   ./dnstt-client -doh https://doh.cloudflare.com/dns-query -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
+
+   یا با DoT:
+   ./dnstt-client -dot dot.cloudflare.com:853 -pubkey-file ./server.pub $DOMAIN 127.0.0.1:$USER_PORT
 
 3. در تنظیمات تلگرام، از SOCKS5 proxy استفاده کنید:
    Host: 127.0.0.1
