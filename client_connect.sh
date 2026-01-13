@@ -144,8 +144,15 @@ else
 fi
 
 echo ""
+echo -e "${YELLOW}Run as systemd service? (y/n, default: n): ${NC}"
+read -p "" RUN_AS_SERVICE
+if [ -z "$RUN_AS_SERVICE" ]; then
+    RUN_AS_SERVICE="n"
+fi
+
+echo ""
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}  Connecting...${NC}"
+echo -e "${GREEN}  Configuration${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo -e "${YELLOW}Configuration:${NC}"
@@ -164,18 +171,90 @@ echo "  Type: SOCKS5"
 echo "  Host: 127.0.0.1"
 echo "  Port: $LOCAL_PORT"
 echo ""
-echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
-echo ""
 
-# Run client from work directory (same folder as server)
-# According to dnstt docs:
-# - DoH: ./dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
-# - DoT: ./dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-# - DoU: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
-if [ "$DNS_METHOD" = "dot" ]; then
-    $WORK_DIR/dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
-elif [ "$DNS_METHOD" = "dou" ]; then
-    $WORK_DIR/dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+if [ "$RUN_AS_SERVICE" = "y" ] || [ "$RUN_AS_SERVICE" = "Y" ]; then
+    # Check if running as root for service creation
+    if [ "$EUID" -ne 0 ]; then
+        echo -e "${RED}Root privileges required to create systemd service${NC}"
+        echo -e "${YELLOW}Please run with sudo or as root${NC}"
+        exit 1
+    fi
+    
+    # Save configuration to file
+    CONFIG_FILE="$WORK_DIR/client.conf"
+    cat > $CONFIG_FILE << EOF
+DOMAIN=$DOMAIN
+DNS_METHOD=$DNS_METHOD
+DNS_URL=$DNS_URL
+LOCAL_PORT=$LOCAL_PORT
+PUBKEY_FILE=$PUBKEY_FILE
+EOF
+    
+    # Build command based on DNS method
+    if [ "$DNS_METHOD" = "dot" ]; then
+        CLIENT_CMD="$WORK_DIR/dnstt-client -dot $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    elif [ "$DNS_METHOD" = "dou" ]; then
+        CLIENT_CMD="$WORK_DIR/dnstt-client -udp $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    else
+        CLIENT_CMD="$WORK_DIR/dnstt-client -doh $DNS_URL -pubkey-file $PUBKEY_FILE $DOMAIN 127.0.0.1:$LOCAL_PORT"
+    fi
+    
+    # Create systemd service
+    echo -e "${YELLOW}Creating systemd service...${NC}"
+    cat > /etc/systemd/system/dnstt-client.service << EOF
+[Unit]
+Description=DNSTT Client
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=$WORK_DIR
+ExecStart=$CLIENT_CMD
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    # Enable and start service
+    systemctl daemon-reload
+    systemctl enable dnstt-client
+    systemctl restart dnstt-client
+    
+    echo ""
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Service created and started!${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "${YELLOW}Service commands:${NC}"
+    echo "  Status: systemctl status dnstt-client"
+    echo "  Logs:   journalctl -u dnstt-client -f"
+    echo "  Stop:   systemctl stop dnstt-client"
+    echo "  Start:  systemctl start dnstt-client"
+    echo "  Restart: systemctl restart dnstt-client"
+    echo ""
+    echo -e "${YELLOW}Service status:${NC}"
+    systemctl status dnstt-client --no-pager -l
 else
-    $WORK_DIR/dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    echo -e "${GREEN}========================================${NC}"
+    echo -e "${GREEN}  Connecting...${NC}"
+    echo -e "${GREEN}========================================${NC}"
+    echo ""
+    echo -e "${YELLOW}Press Ctrl+C to stop${NC}"
+    echo ""
+    
+    # Run client directly
+    # According to dnstt docs:
+    # - DoH: ./dnstt-client -doh URL -pubkey-file KEY DOMAIN LOCAL:PORT
+    # - DoT: ./dnstt-client -dot HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
+    # - DoU: ./dnstt-client -udp HOST:PORT -pubkey-file KEY DOMAIN LOCAL:PORT
+    if [ "$DNS_METHOD" = "dot" ]; then
+        $WORK_DIR/dnstt-client -dot "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    elif [ "$DNS_METHOD" = "dou" ]; then
+        $WORK_DIR/dnstt-client -udp "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    else
+        $WORK_DIR/dnstt-client -doh "$DNS_URL" -pubkey-file "$PUBKEY_FILE" "$DOMAIN" "127.0.0.1:$LOCAL_PORT"
+    fi
 fi
