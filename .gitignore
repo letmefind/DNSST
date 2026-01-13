@@ -1,0 +1,20 @@
+# فایل‌های باینری کامپایل شده
+dnstt/dnstt-server/dnstt-server
+dnstt/dnstt-client/dnstt-client
+
+# فایل‌های فشرده
+*.zip
+*.tar.gz
+*.tar
+
+# فایل‌های موقت
+*.log
+*.tmp
+.DS_Store
+
+# کلیدهای خصوصی (امنیتی)
+*.key
+server.key
+
+# فایل‌های محلی کاربر
+info.txt
