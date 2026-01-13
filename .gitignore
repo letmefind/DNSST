@@ -1,6 +1,11 @@
-# فایل‌های باینری کامپایل شده
+# فایل‌های باینری کامپایل شده محلی
 dnstt/dnstt-server/dnstt-server
 dnstt/dnstt-client/dnstt-client
+
+# باینری‌های ریپازیتوری را نگه دارید (binaries/ folder)
+!binaries/
+!binaries/dnstt-server
+!binaries/dnstt-client
 
 # فایل‌های فشرده
 *.zip
