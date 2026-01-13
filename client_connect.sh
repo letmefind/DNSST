@@ -20,12 +20,15 @@ if [ -z "$DOMAIN" ]; then
     exit 1
 fi
 
+echo ""
 echo "DNS resolver type:"
 echo "1. DoH (DNS over HTTPS) - Default"
 echo "2. DoT (DNS over TLS)"
-read -p "Select (1 or 2, default: 1): " DNS_TYPE
+echo ""
+read -p "Select (1 or 2, default: 1, press Enter for DoH): " DNS_TYPE
 if [ -z "$DNS_TYPE" ]; then
     DNS_TYPE="1"
+    echo -e "${GREEN}Using DoH (default)${NC}"
 fi
 
 if [ "$DNS_TYPE" = "2" ]; then
