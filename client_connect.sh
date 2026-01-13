@@ -142,6 +142,8 @@ echo -e "${YELLOW}Configuration:${NC}"
 echo "  Domain: $DOMAIN"
 if [ "$DNS_METHOD" = "dot" ]; then
     echo "  DNS: DoT - $DNS_URL"
+elif [ "$DNS_METHOD" = "dou" ]; then
+    echo "  DNS: DoU - $DNS_URL"
 else
     echo "  DNS: DoH - $DNS_URL"
 fi
