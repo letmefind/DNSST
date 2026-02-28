@@ -1,85 +1,116 @@
 # راه‌اندازی DNSTT Tunnel برای پراکسی تلگرام
 
-این اسکریپت برای راه‌اندازی یک تونل DNS بین سرور B و کاربران استفاده می‌شود تا ترافیک از طریق DNS به سرور A منتقل شود.
+راه‌اندازی تونل DNS بین سرور A (ایران) و سرور B (خارج): ترافیک کاربران روی A دریافت می‌شود و از طریق تونل به B فرستاده می‌شود؛ روی B به ۱۲۷.۰.۰.۱ (مثلاً MTProxy) تحویل داده می‌شود.
 
-## ⚡ نصب سریع
+## ⚡ نصب سریع (یک‌کلیکی)
 
 ```bash
 git clone https://github.com/letmefind/DNSST.git
 cd DNSST
-chmod +x setup_dnstt.sh
-sudo ./setup_dnstt.sh
+chmod +x oneclick_external.sh oneclick_iran.sh
 ```
+
+**۱) سرور B (خارج)** — اول اجرا کنید؛ دامنه + پورت سرویس مقصد روی همین سرور (مثلاً MTProxy روی ۱۲۷.۰.۰.۱):
+
+```bash
+sudo ./oneclick_external.sh
+# یا: sudo ./oneclick_external.sh tunnel.example.com 1080
+```
+
+بعد از نصب، **کلید عمومی** را از خروجی کپی کنید.
+
+**۲) سرور A (ایران)** — روی سروری که ترافیک کاربران را دریافت می‌کند؛ دامنه، کلید عمومی (از B) و پورت گوش دادن برای کاربران:
+
+```bash
+sudo ./oneclick_iran.sh
+# یا: sudo ./oneclick_iran.sh tunnel.example.com "pubkey:xxxx..." 1080
+```
+
+کاربران در تلگرام/اپ پراکسی را روی **IP سرور A** و همان پورت (مثلاً ۱۰۸۰) تنظیم می‌کنند.
+
+جزئیات بیشتر: [QUICKSTART.md](QUICKSTART.md)
 
 ## معماری
 
 ```
-کاربران → [dnstt-client] → DNS Tunnel → [سرور B: dnstt-server] → [سرور A: پراکسی/اپلیکیشن]
+کاربران → [سرور A (ایران): dnstt-client] → DNS Tunnel → [سرور B (خارج): dnstt-server] → 127.0.0.1:پورت (MTProxy یا سرویس دیگر)
 ```
 
-**توضیح:**
-- **سرور B**: سرور دریافت کننده ترافیک کاربران (جایی که `dnstt-server` نصب می‌شود)
-- **سرور A**: سرور دریافت کننده ترافیک از B (جایی که پراکسی تلگرام یا سایر اپلیکیشن‌ها نصب است)
+| سرور | محل | سرویس | نقش |
+|------|-----|--------|-----|
+| **A** | ایران | `dnstt-client` | ترافیک کاربران اینجا دریافت می‌شود؛ کلاینت ترافیک را از طریق تونل به B می‌فرستد. |
+| **B** | خارج | `dnstt-server` | ترافیک تونل را دریافت و به ۱۲۷.۰.۰.۱:پورت (مثلاً MTProxy روی همین سرور) تحویل می‌دهد. |
 
-### جریان ترافیک:
+### جریان ترافیک
 
-1. کاربر `dnstt-client` را روی سیستم خود اجرا می‌کند
-2. `dnstt-client` ترافیک را از طریق DNS queries (DoH/DoT) به سرور B ارسال می‌کند
-3. `dnstt-server` روی سرور B ترافیک را دریافت و رمزگشایی می‌کند
-4. ترافیک به سرور A (مقصد نهایی) منتقل می‌شود
-5. پاسخ از سرور A به کاربر برمی‌گردد
+1. کاربران به **سرور A** (IP و پورت) وصل می‌شوند (مثلاً SOCKS5).
+2. روی سرور A، `dnstt-client` ترافیک را از طریق DNS (DoH/DoT) به **سرور B** ارسال می‌کند.
+3. روی سرور B، `dnstt-server` ترافیک را دریافت و رمزگشایی می‌کند.
+4. ترافیک به **۱۲۷.۰.۰.۱:پورت** روی همان سرور B تحویل داده می‌شود (MTProxy یا هر سرویس دیگر).
+5. پاسخ از B به A و سپس به کاربر برمی‌گردد.
 
 ## پیش‌نیازها
 
-### برای سرور B:
-- سیستم عامل Linux (Ubuntu/Debian/CentOS)
+### برای سرور B (خارج):
+- سیستم عامل Linux (Ubuntu/Debian)
 - دسترسی root
 - اتصال به اینترنت
-- دامنه معتبر که به IP سرور B اشاره می‌کند
-- DNS resolver که از DoH پشتیبانی می‌کند
+- دامنه معتبر که به **IP سرور B** اشاره می‌کند (کلاینت روی A از همین دامنه برای تونل استفاده می‌کند)
+- سرویس مقصد روی همین سرور (مثلاً MTProxy روی ۱۲۷.۰.۰.۱:۱۰۸۰) یا هر پورت دیگر
 
-### برای سرور A:
-- پراکسی تلگرام یا هر اپلیکیشن دیگری که می‌خواهید از طریق تونل به آن دسترسی داشته باشید
-- اتصال شبکه بین سرور A و B
+### برای سرور A (ایران):
+- سیستم عامل Linux (Ubuntu/Debian)
+- دسترسی root
+- اتصال به اینترنت (و امکان استفاده از DoH برای تونل به B)
+- کلید عمومی (`server.pub`) از نصب سرور B
 
-### برای کاربران:
-- سیستم عامل Linux/macOS/Windows
-- دسترسی به اینترنت
-- فایل `server.pub` از سرور B
+### برای کاربران نهایی:
+- در تلگرام/اپ: تنظیم پراکسی SOCKS5 با Host = **IP سرور A** و Port = پورت انتخاب‌شده روی A (معمولاً ۱۰۸۰)
 
-## نصب روی سرور B
+## نصب روی سرور B (خارج)
 
-### روش 1: استفاده از Git (پیشنهادی)
+سرور B ترافیک تونل را دریافت و به **۱۲۷.۰.۰.۱:پورت** تحویل می‌دهد. پورت از شما پرسیده می‌شود (پیش‌فرض ۱۰۸۰).
+
+### روش ۱: یک‌کلیکی (پیشنهادی)
 
 ```bash
 git clone https://github.com/letmefind/DNSST.git
 cd DNSST
-chmod +x setup_dnstt.sh
-sudo ./setup_dnstt.sh
+chmod +x oneclick_external.sh
+sudo ./oneclick_external.sh
+# دامنه + پورت سرویس مقصد روی این سرور (مثلاً 1080 برای MTProxy)
 ```
 
-### روش 2: دانلود مستقیم
+### روش ۲: نصب کامل (setup_dnstt.sh)
 
 ```bash
-wget https://raw.githubusercontent.com/letmefind/DNSST/main/setup_dnstt.sh
 chmod +x setup_dnstt.sh
 sudo ./setup_dnstt.sh
 ```
 
-### اطلاعات مورد نیاز در حین نصب:
+برای این روش می‌توانید مقصد را به IP:پورت (مثلاً ۱۲۷.۰.۰.۱:۱۰۸۰) تنظیم کنید.
 
-1. **دامنه**: دامنه‌ای که به IP سرور B اشاره می‌کند (مثال: `tunnel.example.com`)
-2. **DNS resolver**: آدرس DoH resolver (پیش‌فرض: `https://doh.cloudflare.com/dns-query`)
-3. **IP سرور A**: آدرس IP سرور A که پراکسی یا اپلیکیشن روی آن نصب است
-4. **پورت پراکسی/اپلیکیشن**: پورت سرویس روی سرور A (معمولا `1080` برای SOCKS5)
-5. **پورت محلی dnstt**: پورتی که `dnstt-server` روی سرور B گوش می‌دهد (پیش‌فرض: `5300`)
-6. **پورت خروجی کاربران**: پورتی که کاربران از آن استفاده می‌کنند (پیش‌فرض: `1080`)
+### بعد از نصب سرور B:
 
-### بعد از نصب:
+- کلید عمومی در `/opt/dnstt/server.pub` و در خروجی اسکریپت نمایش داده می‌شود
+- این کلید را برای نصب **سرور A** ذخیره کنید
+- اطلاعات در `/opt/dnstt/info.txt` ذخیره می‌شود
 
-- فایل `server.pub` در `/opt/dnstt/server.pub` ایجاد می‌شود
-- این فایل را به کاربران بدهید
-- اطلاعات کامل در `/opt/dnstt/info.txt` ذخیره می‌شود
+## نصب روی سرور A (ایران)
+
+سرور A ترافیک کاربران را دریافت می‌کند و از طریق تونل به B می‌فرستد.
+
+### روش ۱: یک‌کلیکی (پیشنهادی)
+
+```bash
+# بعد از نصب سرور B و دریافت کلید عمومی:
+sudo ./oneclick_iran.sh
+# دامنه (همان دامنهٔ B)، کلید عمومی، پورت گوش دادن برای کاربران (پیش‌فرض 1080)
+```
+
+### روش ۲: استفاده از client_connect.sh
+
+اگر ترافیک را روی **همان سرور A** می‌گیرید، می‌توانید از `client_connect.sh` با کلید و دامنهٔ B استفاده کنید و آدرس گوش دادن را `0.0.0.0:1080` قرار دهید تا کاربران به IP سرور A وصل شوند (جزئیات در QUICKSTART).
 
 ## تنظیم DNS
 
@@ -97,118 +128,75 @@ TTL: 300
 - و IP سرور B شما `192.0.2.1` است
 - باید یک رکورد A با نام `tunnel` و مقدار `192.0.2.1` ایجاد کنید
 
-## استفاده برای کاربران
+## استفاده برای کاربران نهایی
 
-### روش ساده (استفاده از اسکریپت)
+### روش پیشنهادی: اتصال مستقیم به سرور A
 
-1. **دانلود فایل کلید عمومی:**
+اگر سرور A را با `oneclick_iran.sh` نصب کرده‌اید، کاربران **مستقیماً به IP سرور A** وصل می‌شوند (بدون نصب کلاینت روی دستگاه خود):
+
+1. **تنظیم تلگرام (یا اپ پراکسی):**
+   - Settings → Advanced → Connection type → Use proxy
+   - Add proxy → SOCKS5
+   - **Host:** IP یا دامنهٔ **سرور A (ایران)**
+   - **Port:** پورتی که هنگام نصب سرور A انتخاب کردید (معمولاً `1080`)
+
+ترافیک از کاربر → سرور A (dnstt-client) → تونل → سرور B (dnstt-server) → ۱۲۷.۰.۰.۱ (مثلاً MTProxy).
+
+### روش دیگر: اجرای کلاینت روی دستگاه کاربر
+
+اگر بخواهید کاربران روی سیستم خودشان کلاینت اجرا کنند (اتصال به ۱۲۷.۰.۰.۱ روی همان دستگاه):
+
+1. **دریافت کلید عمومی از سرور B:**
 ```bash
 scp root@SERVER_B_IP:/opt/dnstt/server.pub ./
 ```
 
-2. **دانلود و اجرای اسکریپت client:**
+2. **اجرای اسکریپت client:**
 ```bash
 git clone https://github.com/letmefind/DNSST.git
 cd DNSST
 chmod +x client_connect.sh
 ./client_connect.sh
 ```
+   - دامنه (همان دامنهٔ B)، DoH، مسیر `server.pub`، پورت محلی (مثلاً ۱۰۸۰)
 
-3. **وارد کردن اطلاعات:**
-   - دامنه (همان دامنه‌ای که در سرور B استفاده کردید)
-   - DNS resolver DoH
-   - مسیر فایل `server.pub`
-   - پورت محلی (معمولا `1080`)
+3. **تنظیم تلگرام:** Host: `127.0.0.1`, Port: `1080`
 
-4. **تنظیم تلگرام:**
-   - Settings → Advanced → Connection type
-   - Use proxy
-   - Add proxy → SOCKS5
-   - Host: `127.0.0.1`
-   - Port: `1080` (یا پورتی که انتخاب کردید)
-
-### روش دستی
-
-1. **دانلود فایل کلید عمومی:**
-```bash
-scp root@SERVER_B_IP:/opt/dnstt/server.pub ./
-```
-
-2. **نصب Go (اگر نصب نیست):**
-```bash
-# Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install golang-go
-
-# CentOS/RHEL
-sudo yum install golang
-
-# macOS
-brew install go
-```
-
-3. **دانلود و کامپایل dnstt-client:**
-```bash
-git clone https://github.com/Mygod/dnstt.git
-cd dnstt/plugin
-go build -o dnstt-client ./dnstt-client
-```
-
-4. **اجرای client:**
+یا به صورت دستی بعد از کامپایل `dnstt-client`:
 ```bash
 ./dnstt-client -doh https://doh.cloudflare.com/dns-query \
   -pubkey-file ./server.pub \
   tunnel.example.com \
   127.0.0.1:1080
 ```
-
-5. **تنظیم تلگرام:**
-   - نوع: SOCKS5
-   - Host: 127.0.0.1
-   - Port: 1080
+سپس در تلگرام: SOCKS5، Host: 127.0.0.1، Port: 1080
 
 ## مدیریت سرویس
 
-### استفاده از اسکریپت مدیریت (پیشنهادی)
+### روی سرور B (خارج) — dnstt-server
 
 ```bash
 cd DNSST
 sudo ./manage.sh
 ```
 
-این اسکریپت یک منوی تعاملی ارائه می‌دهد که شامل:
-- مشاهده وضعیت سرویس
-- مشاهده لاگ‌ها (زنده و آرشیو)
-- راه‌اندازی/توقف/راه‌اندازی مجدد سرویس
-- نمایش اطلاعات اتصال و کلید عمومی
-- بررسی پورت‌ها و iptables
+منو: وضعیت، لاگ، راه‌اندازی مجدد، iptables، آزاد کردن پورت ۵۳.
 
-### دستورات دستی
+دستورات مستقیم:
+```bash
+systemctl status dnstt-server
+journalctl -u dnstt-server -f
+systemctl restart dnstt-server
+```
+
+### روی سرور A (ایران) — dnstt-client
 
 ```bash
-# مشاهده وضعیت
-systemctl status dnstt-server
-
-# مشاهده لاگ‌ها (زنده)
-journalctl -u dnstt-server -f
-
-# مشاهده آخرین لاگ‌ها
-journalctl -u dnstt-server -n 50
-
-# راه‌اندازی مجدد
-systemctl restart dnstt-server
-
-# توقف
-systemctl stop dnstt-server
-
-# شروع
-systemctl start dnstt-server
-
-# غیرفعال کردن سرویس
-systemctl disable dnstt-server
-
-# فعال کردن سرویس
-systemctl enable dnstt-server
+sudo ./manage_client.sh
+# یا:
+systemctl status dnstt-client
+journalctl -u dnstt-client -f
+systemctl restart dnstt-client
 ```
 
 ## عیب‌یابی
@@ -338,7 +326,7 @@ sudo systemctl restart dnstt-server
 sudo nano /etc/systemd/system/dnstt-server.service
 
 # اضافه کردن -mtu به دستور
-ExecStart=/opt/dnstt/dnstt-server -udp :5300 -mtu 1232 -privkey-file /opt/dnstt/server.key tunnel.example.com SERVER_A_IP:1080
+ExecStart=/opt/dnstt/dnstt-server -udp :5300 -mtu 1232 -privkey-file /opt/dnstt/server.key tunnel.example.com 127.0.0.1:1080
 ```
 
 ### استفاده از uTLS برای تغییر TLS fingerprint
@@ -376,57 +364,51 @@ ExecStart=/opt/dnstt/dnstt-server -udp :5300 -mtu 1232 -privkey-file /opt/dnstt/
 
 ## فایل‌های پروژه
 
-- `setup_dnstt.sh`: اسکریپت اصلی نصب و راه‌اندازی روی سرور B
-- `client_connect.sh`: اسکریپت ساده برای اتصال کاربران
-- `manage.sh`: اسکریپت مدیریت سرویس روی سرور B (منوی تعاملی)
-- `README.md`: این فایل مستندات
-- `QUICKSTART.md`: راهنمای سریع شروع
+- `oneclick_external.sh`: نصب یک‌کلیکی **سرور B (خارج)** — dnstt-server؛ پورت مقصد (۱۲۷.۰.۰.۱) از کاربر پرسیده می‌شود.
+- `oneclick_iran.sh`: نصب یک‌کلیکی **سرور A (ایران)** — dnstt-client؛ ترافیک کاربران اینجا دریافت و به B فرستاده می‌شود.
+- `setup_dnstt.sh`: نصب کامل و قابل تنظیم روی سرور B.
+- `client_connect.sh`: اتصال کلاینت (برای کاربران یا برای نصب دستی روی سرور A).
+- `manage.sh`: مدیریت سرویس dnstt-server روی سرور B.
+- `manage_client.sh`: مدیریت سرویس dnstt-client روی سرور A.
+- `README.md`: این مستندات.
+- `QUICKSTART.md`: راهنمای سریع و خلاصه.
 
 ## ساختار دایرکتوری
 
-بعد از نصب، ساختار دایرکتوری به صورت زیر است:
+بعد از نصب روی **سرور B** (`/opt/dnstt/`):
 
 ```
-/opt/dnstt/
 ├── dnstt-server          # باینری سرور
-├── dnstt-client          # باینری کلاینت
+├── dnstt-client          # باینری کلاینت (برای client_setup.sh)
 ├── server.key            # کلید خصوصی (محرمانه!)
-├── server.pub            # کلید عمومی (به اشتراک بگذارید)
+├── server.pub            # کلید عمومی (برای نصب سرور A)
 ├── info.txt              # اطلاعات اتصال
-└── client_setup.sh       # اسکریپت راه‌اندازی کلاینت
+└── client_setup.sh       # اسکریپت راه‌اندازی کلاینت (تولیدشده توسط setup_dnstt.sh)
 ```
+
+بعد از نصب روی **سرور A** نیز `/opt/dnstt/` با `dnstt-client` و `server.pub` ایجاد می‌شود.
 
 ## مثال‌های استفاده
 
-### مثال 1: پراکسی تلگرام
+### مثال ۱: پراکسی تلگرام (معماری فعلی)
 
 ```
-سرور A: پراکسی تلگرام روی پورت 1080
-سرور B: dnstt-server روی پورت 5300
-کاربر: اتصال از طریق dnstt-client به پورت محلی 1080
+سرور A (ایران): dnstt-client — کاربران به A:1080 وصل می‌شوند
+سرور B (خارج): dnstt-server → 127.0.0.1:1080 (MTProxy روی همان B)
 ```
 
-### مثال 2: SSH Tunnel
+### مثال ۲: سرویس دیگر روی B
 
 ```
-سرور A: SSH server روی پورت 22
-سرور B: dnstt-server که به سرور A متصل می‌شود
-کاربر: اتصال از طریق dnstt-client
-```
-
-### مثال 3: Tor Bridge
-
-```
-سرور A: Tor bridge روی پورت 9001
-سرور B: dnstt-server که به Tor bridge متصل می‌شود
-کاربر: اتصال از طریق dnstt-client
+سرور A: dnstt-client (دریافت ترافیک کاربران)
+سرور B: dnstt-server → 127.0.0.1:22 (SSH) یا 127.0.0.1:9001 (Tor) — پورت را هنگام نصب B وارد کنید.
 ```
 
 ## سوالات متداول (FAQ)
 
-### Q: آیا می‌توانم از یک سرور برای A و B استفاده کنم؟
+### Q: آیا می‌توانم سرور A و B را روی یک ماشین داشته باشم؟
 
-A: بله، می‌توانید هر دو را روی یک سرور نصب کنید. در این صورت IP سرور A را `127.0.0.1` قرار دهید.
+A: بله. سرور B را با مقصد `127.0.0.1:پورت` نصب کنید؛ سرور A (dnstt-client) را روی همان یا ماشین دیگر با دامنهٔ اشاره‌کننده به همان IP اجرا کنید. برای تست، هر دو روی یک سرور امکان‌پذیر است.
 
 ### Q: آیا می‌توانم از چندین کاربر استفاده کنم؟
 
